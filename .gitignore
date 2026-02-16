@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+artifacts/
+cache/
+coverage/
+typechain-types/
+types/
+
+# FHEVM
+fhevmTemp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage.json
+.nyc_output/
+
+# Hardhat
+.hardhat/
+
+# Next.js
+.next/
+out/
+
+# Production
+*.mp4
+!video/builder-track-demo.mp4
+
+# Temporary files
+tmp/
+temp/
