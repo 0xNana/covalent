@@ -39,10 +39,10 @@ export default function WalletConnect() {
       <button
         onClick={handleDisconnect}
         aria-label={`Disconnect wallet ${address.slice(0, 6)}...${address.slice(-4)}`}
-        className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all"
+        className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-brand-border rounded-lg hover:bg-gray-100 transition-all text-sm"
       >
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="font-mono text-xs text-slate-300">
+        <span className="w-2 h-2 rounded-full bg-brand-green" />
+        <span className="font-mono text-xs text-brand-muted">
           {address.slice(0, 6)}...{address.slice(-4)}
         </span>
       </button>
@@ -52,17 +52,20 @@ export default function WalletConnect() {
   return (
     <div className="flex items-center gap-2">
       {error && (
-        <span className="text-xs text-red-400 max-w-[150px] truncate" title={error}>
+        <span
+          className="text-xs text-red-500 max-w-[150px] truncate"
+          title={error}
+        >
           {error}
         </span>
       )}
       <button
         onClick={handleConnect}
         aria-label="Connect wallet"
-        className="gradient-btn text-white px-6 py-2 rounded-xl font-bold transition-all flex items-center gap-2"
+        className="btn-primary px-5 py-2.5 text-sm flex items-center gap-2"
       >
         <span className="material-icons text-sm">account_balance_wallet</span>
-        Connect Wallet
+        Connect
       </button>
     </div>
   );

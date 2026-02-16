@@ -36,7 +36,7 @@ export default function RevealButton({ fundId, onReveal }: RevealButtonProps) {
       <button
         onClick={handleReveal}
         disabled={loading || success}
-        className="w-full gradient-btn glow-blue text-white font-extrabold py-5 px-8 rounded-2xl text-lg flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        className="w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? (
           <>
@@ -50,27 +50,24 @@ export default function RevealButton({ fundId, onReveal }: RevealButtonProps) {
           </>
         ) : (
           <>
-            <span className="material-icons">lock_open</span>
+            <span className="material-icons">visibility</span>
             Reveal Total Raised
           </>
         )}
       </button>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-          <span className="material-icons text-red-400 text-sm">error</span>
-          <p className="text-sm text-red-400">{error}</p>
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <span className="material-icons text-red-500 text-sm">error</span>
+          <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="flex items-start gap-3 p-4 bg-primary-blue/5 border border-primary-blue/20 rounded-xl">
-          <span className="material-icons text-primary-blue mt-0.5">info</span>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Reveal requested. Only the combined total will be shown — individual
-            donor amounts stay private forever.
-          </p>
-        </div>
+        <p className="text-xs text-brand-muted text-center">
+          Only the combined total will be shown — individual amounts stay
+          private.
+        </p>
       )}
     </div>
   );

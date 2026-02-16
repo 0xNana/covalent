@@ -9,7 +9,6 @@ import {
   wrapUsdtToCUsdt,
   unwrapCUsdt,
   getCUsdtAddress,
-  getUsdtAddress,
 } from "@/app/lib/contract";
 import { encryptDonationAmount } from "@/app/lib/fheClient";
 
@@ -37,7 +36,8 @@ export default function TokenManager() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const addressesConfigured = Boolean(
-    process.env.NEXT_PUBLIC_USDT_ADDRESS && process.env.NEXT_PUBLIC_CUSDT_ADDRESS,
+    process.env.NEXT_PUBLIC_USDT_ADDRESS &&
+      process.env.NEXT_PUBLIC_CUSDT_ADDRESS,
   );
 
   const fetchBalances = useCallback(async () => {
@@ -81,13 +81,11 @@ export default function TokenManager() {
     setSuccess(null);
 
     try {
-      // Step 1: Approve if needed
       if (balances.allowance < raw) {
-        setStep("Approving token spend...");
+        setStep("Approving...");
         await approveUsdt(getCUsdtAddress(), raw);
       }
 
-      // Step 2: Wrap
       setStep("Converting to private tokens...");
       await wrapUsdtToCUsdt(address, raw);
 
@@ -95,7 +93,7 @@ export default function TokenManager() {
       setAmount("");
       await fetchBalances();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Wrap failed";
+      const msg = err instanceof Error ? err.message : "Conversion failed";
       setError(msg);
     } finally {
       setLoading(false);
@@ -113,21 +111,21 @@ export default function TokenManager() {
     setSuccess(null);
 
     try {
-      // Step 1: Encrypt the amount for the unwrap call
       setStep("Preparing withdrawal...");
-      const { handle, inputProof } = await encryptDonationAmount(getCUsdtAddress(), address, raw);
+      const { handle, inputProof } = await encryptDonationAmount(
+        getCUsdtAddress(),
+        address,
+        raw,
+      );
 
-      // Step 2: Call unwrap
       setStep("Converting back to USDT...");
       await unwrapCUsdt(address, address, handle, inputProof);
 
-      setSuccess(
-        `Withdrawal initiated for ${amount} cUSDT. Your USDT will arrive shortly.`
-      );
+      setSuccess(`Withdrawal initiated for ${amount} USDT.`);
       setAmount("");
       await fetchBalances();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Unwrap failed";
+      const msg = err instanceof Error ? err.message : "Withdrawal failed";
       setError(msg);
     } finally {
       setLoading(false);
@@ -139,73 +137,53 @@ export default function TokenManager() {
 
   if (!addressesConfigured) {
     return (
-      <section className="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow">
-        <h2 className="text-2xl font-bold text-white mb-2">Token Manager</h2>
-        <p className="text-slate-400 text-sm">
-          Token contracts not configured. Set <code className="text-primary-blue">NEXT_PUBLIC_USDT_ADDRESS</code> and{" "}
-          <code className="text-primary-blue">NEXT_PUBLIC_CUSDT_ADDRESS</code> in your <code>.env.local</code> to enable wrapping.
+      <div className="card p-6">
+        <p className="text-sm text-brand-muted">
+          Token contracts not configured. Set{" "}
+          <code className="text-brand-green">NEXT_PUBLIC_USDT_ADDRESS</code> and{" "}
+          <code className="text-brand-green">NEXT_PUBLIC_CUSDT_ADDRESS</code> in
+          your <code>.env.local</code>.
         </p>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-white mb-1">
-            Token Manager
-          </h2>
-          <p className="text-slate-400 text-sm">
-            Convert between standard and private tokens
-          </p>
-        </div>
-        <span className="material-icons text-primary-purple text-3xl">
-          swap_horiz
-        </span>
-      </div>
-
+    <div className="card p-6">
       {/* Balance row */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-deep-slate rounded-xl p-4 border border-white/5">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <div className="bg-gray-50 rounded-lg p-4 border border-brand-border">
+          <p className="text-xs font-semibold text-brand-muted uppercase tracking-wide mb-1">
             USDT Balance
           </p>
-          <p className="text-xl font-black text-white font-mono">
-            {formatUsdt(balances.usdt)}
+          <p className="text-xl font-bold text-brand-dark font-mono">
+            ${formatUsdt(balances.usdt)}
           </p>
         </div>
-        <div className="bg-deep-slate rounded-xl p-4 border border-white/5">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+        <div className="bg-brand-green-light rounded-lg p-4 border border-green-200">
+          <p className="text-xs font-semibold text-brand-green uppercase tracking-wide mb-1">
             Private Balance
           </p>
-          <p className="text-xl font-black text-primary-purple font-mono">
+          <p className="text-xl font-bold text-brand-green font-mono">
             Hidden
-          </p>
-          <p className="text-[10px] text-slate-600 mt-1">
-            Balance is private
           </p>
         </div>
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-lg">
         <button
           onClick={() => {
             setTab("wrap");
             setError(null);
             setSuccess(null);
           }}
-          className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
+          className={`flex-1 py-2.5 rounded-md text-sm font-semibold transition-all ${
             tab === "wrap"
-              ? "bg-primary-blue/10 text-primary-blue border-2 border-primary-blue"
-              : "bg-deep-slate text-slate-400 border border-white/10 hover:border-white/20"
+              ? "bg-white text-brand-dark shadow-sm"
+              : "text-brand-muted hover:text-brand-body"
           }`}
         >
-          <span className="material-icons text-sm align-middle mr-1">
-            arrow_forward
-          </span>
           Make Private
         </button>
         <button
@@ -214,23 +192,20 @@ export default function TokenManager() {
             setError(null);
             setSuccess(null);
           }}
-          className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
+          className={`flex-1 py-2.5 rounded-md text-sm font-semibold transition-all ${
             tab === "unwrap"
-              ? "bg-primary-purple/10 text-primary-purple border-2 border-primary-purple"
-              : "bg-deep-slate text-slate-400 border border-white/10 hover:border-white/20"
+              ? "bg-white text-brand-dark shadow-sm"
+              : "text-brand-muted hover:text-brand-body"
           }`}
         >
-          <span className="material-icons text-sm align-middle mr-1">
-            arrow_back
-          </span>
           Withdraw
         </button>
       </div>
 
       {/* Amount input */}
-      <div className="mb-6">
-        <label className="text-sm font-semibold text-slate-300 block mb-2">
-          Amount ({tab === "wrap" ? "USDT" : "cUSDT"})
+      <div className="mb-4">
+        <label className="text-sm font-semibold text-brand-dark block mb-2">
+          Amount ({tab === "wrap" ? "USDT" : "Private Tokens"})
         </label>
         <div className="relative">
           <input
@@ -239,21 +214,18 @@ export default function TokenManager() {
             step="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder={`Enter ${tab === "wrap" ? "USDT" : "cUSDT"} amount`}
-            className="w-full bg-deep-slate border-2 border-white/10 rounded-xl px-6 py-4 text-xl font-mono text-white focus:ring-2 focus:ring-primary-blue/30 focus:border-primary-blue outline-none transition-all placeholder:text-slate-700"
+            placeholder="Enter amount"
+            className="input-field font-mono pr-16"
             disabled={loading}
           />
           {tab === "wrap" && balances.usdt > 0n && (
             <button
               onClick={() =>
                 setAmount(
-                  (
-                    Number(balances.usdt) /
-                    10 ** USDT_DECIMALS
-                  ).toString()
+                  (Number(balances.usdt) / 10 ** USDT_DECIMALS).toString(),
                 )
               }
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-primary-blue hover:text-primary-blue/80 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-green hover:text-brand-green-hover transition-colors"
             >
               MAX
             </button>
@@ -263,27 +235,27 @@ export default function TokenManager() {
 
       {/* Step indicator */}
       {step && (
-        <div className="flex items-center gap-3 mb-4 p-4 bg-primary-blue/5 border border-primary-blue/20 rounded-xl">
-          <div className="w-4 h-4 border-2 border-primary-blue border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-primary-blue font-medium">{step}</p>
+        <div className="flex items-center gap-2 mb-4 p-3 bg-brand-green-light border border-green-200 rounded-lg">
+          <div className="w-4 h-4 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-brand-green font-medium">{step}</p>
         </div>
       )}
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 p-4 mb-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-          <span className="material-icons text-red-400 text-sm">error</span>
-          <p className="text-sm text-red-400">{error}</p>
+        <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 border border-red-200 rounded-lg">
+          <span className="material-icons text-red-500 text-sm">error</span>
+          <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {/* Success */}
       {success && (
-        <div className="flex items-center gap-2 p-4 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-          <span className="material-icons text-emerald-400 text-sm">
+        <div className="flex items-center gap-2 p-3 mb-4 bg-brand-green-light border border-green-200 rounded-lg">
+          <span className="material-icons text-brand-green text-sm">
             check_circle
           </span>
-          <p className="text-sm text-emerald-400">{success}</p>
+          <p className="text-sm text-brand-green">{success}</p>
         </div>
       )}
 
@@ -291,11 +263,7 @@ export default function TokenManager() {
       <button
         onClick={tab === "wrap" ? handleWrap : handleUnwrap}
         disabled={loading || !amount || parsedAmount() <= 0n}
-        className={`w-full font-extrabold py-5 px-8 rounded-2xl text-lg flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-          tab === "wrap"
-            ? "gradient-btn glow-blue text-white"
-            : "bg-primary-purple hover:bg-primary-purple/90 text-white"
-        }`}
+        className="w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? (
           <>
@@ -304,41 +272,23 @@ export default function TokenManager() {
           </>
         ) : tab === "wrap" ? (
           <>
-            <span className="material-icons">arrow_forward</span>
+            <span className="material-icons">lock</span>
             Make Private
           </>
         ) : (
           <>
-            <span className="material-icons">arrow_back</span>
+            <span className="material-icons">lock_open</span>
             Withdraw to USDT
           </>
         )}
       </button>
 
-      {/* Info */}
-      <div className="mt-6 space-y-3">
-        <div className="flex items-start gap-3 p-4 bg-primary-blue/5 border border-primary-blue/20 rounded-xl">
-          <span className="material-icons text-primary-blue mt-0.5 text-sm">
-            info
-          </span>
-          <div className="text-xs text-slate-300 leading-relaxed">
-            {tab === "wrap" ? (
-              <>
-                <strong>Make Private</strong> converts your USDT into private
-                tokens. Your balance becomes invisible on-chain and can be
-                used for anonymous donations.
-              </>
-            ) : (
-              <>
-                <strong>Withdraw</strong> converts your private tokens back
-                to standard USDT in your wallet. This may take a moment
-                to process.
-              </>
-            )}
-          </div>
-        </div>
-
-      </div>
-    </section>
+      {/* Info text */}
+      <p className="text-xs text-brand-muted mt-4 leading-relaxed">
+        {tab === "wrap"
+          ? "Converts your USDT into private tokens. Your balance becomes invisible and can be used for anonymous donations."
+          : "Converts private tokens back to standard USDT in your wallet."}
+      </p>
+    </div>
   );
 }

@@ -44,7 +44,6 @@ export default function FundPage() {
 
       const fundData = await getFund(parsedId);
 
-      // Fetch per-token stats (default token = cUSDT)
       let tokenStats: TokenStats = {
         encryptedTotalHex: null,
         revealedTotal: 0,
@@ -63,7 +62,7 @@ export default function FundPage() {
           revealed,
         };
       } catch {
-        // Token stats may fail if no donations yet — not critical
+        // Token stats may fail if no donations yet
       }
 
       if (mountedRef.current) {
@@ -71,7 +70,8 @@ export default function FundPage() {
       }
     } catch (err: unknown) {
       if (mountedRef.current) {
-        const message = err instanceof Error ? err.message : "Failed to load fund";
+        const message =
+          err instanceof Error ? err.message : "Failed to load fund";
         setError(message);
       }
     } finally {
@@ -92,7 +92,7 @@ export default function FundPage() {
   if (!fundId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-xl max-w-md">
+        <div className="card p-6 border-red-200 text-red-600">
           Missing fund ID
         </div>
       </div>
@@ -103,8 +103,8 @@ export default function FundPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary-blue border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="mt-4 text-slate-400">Loading fund information...</p>
+          <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="mt-4 text-brand-muted text-sm">Loading fund...</p>
         </div>
       </div>
     );
@@ -113,7 +113,7 @@ export default function FundPage() {
   if (error || !fund) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-xl max-w-md">
+        <div className="card p-6 border-red-200 text-red-600">
           {error || "Fund not found"}
         </div>
       </div>
@@ -121,48 +121,71 @@ export default function FundPage() {
   }
 
   const nowSec = Math.floor(Date.now() / MS_PER_SECOND);
-  const isActive = fund.active && nowSec >= fund.startTime && nowSec <= fund.endTime;
+  const isActive =
+    fund.active && nowSec >= fund.startTime && nowSec <= fund.endTime;
   const hasStarted = nowSec >= fund.startTime;
-  const daysLeft = Math.max(0, Math.ceil((fund.endTime - nowSec) / SECONDS_PER_DAY));
+  const daysLeft = Math.max(
+    0,
+    Math.ceil((fund.endTime - nowSec) / SECONDS_PER_DAY),
+  );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
-      {/* Header */}
-      <div className="mb-10">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-4xl font-extrabold text-white mb-2">
-              {fund.title ?? `Fund #${fund.id}`}
-            </h1>
-            {fund.description && (
-              <p className="text-slate-400">{fund.description}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold ${
-              isActive
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                : !hasStarted
-                  ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
-                  : "bg-slate-500/10 border-slate-500/20 text-slate-400"
-            }`}>
-              <span className="material-icons text-sm">
-                {isActive ? "radio_button_checked" : !hasStarted ? "schedule" : "check_circle"}
-              </span>
-              {isActive ? "Active" : !hasStarted ? "Upcoming" : "Ended"}
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full">
-              <span className="material-icons text-primary-purple text-sm">lock</span>
-              <span className="text-sm font-semibold text-slate-300">Private Fund</span>
-            </div>
-          </div>
-        </div>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      {/* Back link */}
+      <div className="mb-6">
+        <a
+          href="/"
+          className="inline-flex items-center gap-1 text-sm text-brand-muted hover:text-brand-dark transition-colors"
+        >
+          <span className="material-icons text-lg">arrow_back</span>
+          Back to explore
+        </a>
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        {/* Left: Fund overview */}
-        <div className="space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+        {/* Left: Fund story (3 cols) */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Fund header */}
+          <div>
+            <h1 className="text-3xl font-extrabold text-brand-dark mb-2">
+              {fund.title ?? `Fund #${fund.id}`}
+            </h1>
+            {fund.description && (
+              <p className="text-brand-muted leading-relaxed">
+                {fund.description}
+              </p>
+            )}
+          </div>
+
+          {/* Status badge row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
+                isActive
+                  ? "bg-green-50 text-green-700 border border-green-200"
+                  : !hasStarted
+                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                    : "bg-gray-100 text-gray-500 border border-gray-200"
+              }`}
+            >
+              <span className="material-icons text-xs">
+                {isActive
+                  ? "radio_button_checked"
+                  : !hasStarted
+                    ? "schedule"
+                    : "check_circle"}
+              </span>
+              {isActive ? "Active" : !hasStarted ? "Upcoming" : "Ended"}
+            </span>
+            {isActive && (
+              <span className="text-xs text-brand-muted">
+                {daysLeft} days left
+              </span>
+            )}
+          </div>
+
+          {/* Stats */}
           <FundStats
             encryptedTotal={fund.tokenStats.encryptedTotalHex}
             donationCount={fund.donationCount}
@@ -170,69 +193,85 @@ export default function FundPage() {
             revealed={fund.tokenStats.revealed}
           />
 
-          {/* Fund details card */}
-          <div className="bg-lighter-slate rounded-2xl p-8 border border-white/5 card-shadow">
-            <h3 className="text-lg font-bold text-white mb-6">Fund Details</h3>
-            <div className="space-y-4">
+          {/* Fund details */}
+          <div className="card p-6">
+            <h3 className="font-bold text-brand-dark mb-4 text-sm">
+              Fund Details
+            </h3>
+            <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400 text-sm">Recipient</span>
-                <span className="font-mono text-sm text-slate-300 truncate ml-4 max-w-[200px]">
-                  {fund.recipient}
+                <span className="text-brand-muted">Recipient</span>
+                <span className="font-mono text-brand-body">
+                  {fund.recipient.slice(0, 6)}...{fund.recipient.slice(-4)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400 text-sm">Creator</span>
-                <span className="font-mono text-sm text-slate-300 truncate ml-4 max-w-[200px]">
-                  {fund.creator}
+                <span className="text-brand-muted">Created by</span>
+                <span className="font-mono text-brand-body">
+                  {fund.creator.slice(0, 6)}...{fund.creator.slice(-4)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400 text-sm">Start Date</span>
-                <span className="text-sm text-slate-300">
+                <span className="text-brand-muted">Start</span>
+                <span className="text-brand-body">
                   {new Date(fund.startTime * 1000).toLocaleDateString("en-US", {
-                    month: "short", day: "numeric", year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
                   })}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400 text-sm">End Date</span>
-                <span className="text-sm text-slate-300">
+                <span className="text-brand-muted">End</span>
+                <span className="text-brand-body">
                   {new Date(fund.endTime * 1000).toLocaleDateString("en-US", {
-                    month: "short", day: "numeric", year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
                   })}
                 </span>
               </div>
-              {isActive && (
-                <div className="flex justify-between">
-                  <span className="text-slate-400 text-sm">Time Left</span>
-                  <span className="text-sm font-bold text-white">{daysLeft} Days</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Right: Donate form */}
-        {isActive ? (
-          <DonateCard fundId={fundId} onDonationComplete={loadFundData} />
-        ) : !hasStarted ? (
-          <div className="bg-lighter-slate rounded-2xl p-8 border border-amber-500/20 card-shadow text-center">
-            <span className="material-icons text-amber-400 text-4xl mb-4">schedule</span>
-            <h3 className="text-xl font-bold text-white mb-2">Fund Not Started</h3>
-            <p className="text-slate-400">
-              Donations open on{" "}
-              {new Date(fund.startTime * 1000).toLocaleDateString("en-US", {
-                month: "long", day: "numeric", year: "numeric",
-              })}
-            </p>
+        {/* Right: Donate card (2 cols) */}
+        <div className="lg:col-span-2">
+          <div className="sticky top-24">
+            {isActive ? (
+              <DonateCard fundId={fundId} onDonationComplete={loadFundData} />
+            ) : !hasStarted ? (
+              <div className="card p-8 text-center">
+                <span className="material-icons text-amber-500 text-4xl mb-3">
+                  schedule
+                </span>
+                <h3 className="text-lg font-bold text-brand-dark mb-1">
+                  Not Started Yet
+                </h3>
+                <p className="text-sm text-brand-muted">
+                  Donations open{" "}
+                  {new Date(fund.startTime * 1000).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            ) : (
+              <div className="card p-8 text-center">
+                <span className="material-icons text-brand-muted text-4xl mb-3">
+                  check_circle
+                </span>
+                <h3 className="text-lg font-bold text-brand-dark mb-1">
+                  Fund Closed
+                </h3>
+                <p className="text-sm text-brand-muted">
+                  This fund is no longer accepting donations.
+                </p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="bg-lighter-slate rounded-2xl p-8 border border-white/5 card-shadow text-center">
-            <span className="material-icons text-slate-500 text-4xl mb-4">check_circle</span>
-            <h3 className="text-xl font-bold text-white mb-2">Fund Closed</h3>
-            <p className="text-slate-400">This fund is no longer accepting donations.</p>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

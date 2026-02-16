@@ -36,7 +36,7 @@ export default function CreateFundPage() {
     }
 
     if (!/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
-      setError("Invalid recipient Ethereum address");
+      setError("Invalid recipient address");
       return;
     }
 
@@ -73,28 +73,27 @@ export default function CreateFundPage() {
 
   if (createdFundId !== null) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-lighter-slate rounded-2xl border border-white/10 p-12 card-shadow text-center max-w-lg w-full">
-          <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <span className="material-icons text-emerald-400 text-3xl">
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="card p-10 text-center max-w-md w-full">
+          <div className="w-16 h-16 bg-brand-green-light rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="material-icons text-brand-green text-3xl">
               check_circle
             </span>
           </div>
-          <h2 className="text-3xl font-extrabold text-white mb-2">
+          <h2 className="text-2xl font-extrabold text-brand-dark mb-1">
             Fund Created!
           </h2>
-          <p className="text-slate-400 mb-2">Your fund ID is:</p>
-          <p className="text-5xl font-black gradient-text mb-6">
+          <p className="text-brand-muted text-sm mb-2">Your fund ID is</p>
+          <p className="text-5xl font-black text-brand-green mb-6">
             {createdFundId}
           </p>
-          <p className="text-sm text-slate-500 mb-8">
-            Share this ID with donors so they can contribute. Donations will be
-            accepted once the fund start time is reached.
+          <p className="text-sm text-brand-muted mb-6">
+            Share this ID with donors so they can contribute to your fund.
           </p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => router.push(`/fund/${createdFundId}`)}
-              className="px-8 py-3 gradient-btn text-white rounded-xl font-bold"
+              className="btn-primary px-6 py-3 text-sm"
             >
               View Fund
             </button>
@@ -105,7 +104,7 @@ export default function CreateFundPage() {
                 setDescription("");
                 setRecipient("");
               }}
-              className="px-8 py-3 bg-white/5 text-white rounded-xl font-bold border border-white/10 hover:bg-white/10 transition-all"
+              className="btn-outline px-6 py-3 text-sm"
             >
               Create Another
             </button>
@@ -116,20 +115,20 @@ export default function CreateFundPage() {
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-12">
+    <div className="max-w-lg mx-auto px-4 py-10">
       {/* Header */}
-      <div className="text-center mb-10">
-        <h1 className="text-4xl font-extrabold text-white mb-2">
-          Create a Fund
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-extrabold text-brand-dark mb-1">
+          Start a Fund
         </h1>
-        <p className="text-slate-400">
-          Set up a confidential donation fund for your cause.
+        <p className="text-brand-muted text-sm">
+          Set up a fundraiser where donations are private.
         </p>
       </div>
 
       {/* Connect prompt */}
       {!isConnected && (
-        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 px-6 py-4 rounded-xl text-sm flex items-center gap-3 mb-8">
+        <div className="card border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700 flex items-center gap-3 mb-6">
           <span className="material-icons text-lg">
             account_balance_wallet
           </span>
@@ -138,20 +137,17 @@ export default function CreateFundPage() {
       )}
 
       {/* Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-lighter-slate rounded-2xl border border-white/10 p-8 card-shadow space-y-6"
-      >
+      <form onSubmit={handleSubmit} className="card p-6 space-y-5">
         {/* Title */}
         <div>
-          <label className="block text-sm font-medium text-slate-400 mb-3">
+          <label className="block text-sm font-semibold text-brand-dark mb-2">
             Fund Title *
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full bg-deep-slate border-2 border-white/10 rounded-xl px-6 py-4 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-primary-blue/30 focus:border-primary-blue outline-none transition-all"
+            className="input-field"
             placeholder="e.g., Support Independent Journalism"
             disabled={loading || !isConnected}
             required
@@ -160,14 +156,14 @@ export default function CreateFundPage() {
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-slate-400 mb-3">
+          <label className="block text-sm font-semibold text-brand-dark mb-2">
             Description
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            className="w-full bg-deep-slate border-2 border-white/10 rounded-xl px-6 py-4 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-primary-blue/30 focus:border-primary-blue outline-none transition-all resize-none"
+            className="input-field resize-none"
             placeholder="Describe the purpose of this fund..."
             disabled={loading || !isConnected}
           />
@@ -175,26 +171,26 @@ export default function CreateFundPage() {
 
         {/* Recipient */}
         <div>
-          <label className="block text-sm font-medium text-slate-400 mb-3">
+          <label className="block text-sm font-semibold text-brand-dark mb-2">
             Recipient Address *
           </label>
           <input
             type="text"
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
-            className="w-full bg-deep-slate border-2 border-white/10 rounded-xl px-6 py-4 font-mono text-sm text-white placeholder:text-slate-600 focus:ring-2 focus:ring-primary-blue/30 focus:border-primary-blue outline-none transition-all"
+            className="input-field font-mono text-sm"
             placeholder="0x..."
             disabled={loading || !isConnected}
             required
           />
-          <p className="mt-1.5 text-[11px] text-slate-500">
-            The Ethereum address that will receive the funds
+          <p className="mt-1 text-xs text-brand-muted">
+            The wallet that will receive the funds
           </p>
         </div>
 
         {/* Duration */}
         <div>
-          <label className="block text-sm font-medium text-slate-400 mb-3">
+          <label className="block text-sm font-semibold text-brand-dark mb-2">
             Duration (days)
           </label>
           <input
@@ -203,19 +199,16 @@ export default function CreateFundPage() {
             max="365"
             value={durationDays}
             onChange={(e) => setDurationDays(e.target.value)}
-            className="w-full bg-deep-slate border-2 border-white/10 rounded-xl px-6 py-4 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-primary-blue/30 focus:border-primary-blue outline-none transition-all"
+            className="input-field"
             disabled={loading || !isConnected}
           />
-          <p className="mt-1.5 text-[11px] text-slate-500">
-            Fund will be active for this many days after creation
-          </p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 py-3 px-4 bg-red-500/10 rounded-xl border border-red-500/20">
-            <span className="material-icons text-red-400 text-sm">error</span>
-            <span className="text-sm text-red-400">{error}</span>
+          <div className="flex items-center gap-2 py-3 px-4 bg-red-50 rounded-lg border border-red-200">
+            <span className="material-icons text-red-500 text-sm">error</span>
+            <span className="text-sm text-red-600">{error}</span>
           </div>
         )}
 
@@ -223,7 +216,7 @@ export default function CreateFundPage() {
         <button
           type="submit"
           disabled={loading || !isConnected}
-          className="w-full gradient-btn text-white py-5 rounded-xl font-bold text-lg flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          className="w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>
@@ -238,7 +231,6 @@ export default function CreateFundPage() {
           )}
         </button>
       </form>
-
     </div>
   );
 }

@@ -3,37 +3,37 @@
 @tailwind utilities;
 
 :root {
-  --bg-main: #121826;
-  --bg-card: #1c2536;
-  --accent-gradient: linear-gradient(135deg, #4f95ff 0%, #a78bfa 100%);
+  --brand-green: #02a95c;
+  --brand-green-hover: #028a4a;
 }
 
 body {
   font-family: "Manrope", sans-serif;
-  background-color: var(--bg-main);
-  color: #f8fafc;
+  background-color: #f9fafb;
+  color: #333333;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 @layer utilities {
-  .gradient-btn {
-    background: var(--accent-gradient);
-    @apply transition-all duration-200;
+  .btn-primary {
+    @apply bg-brand-green hover:bg-brand-green-hover text-white font-bold
+      rounded-lg transition-all duration-150 active:scale-[0.98];
   }
-  .gradient-btn:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
+  .btn-outline {
+    @apply border border-brand-border text-brand-body hover:bg-gray-50
+      font-semibold rounded-lg transition-all duration-150;
   }
-  .gradient-text {
-    background: var(--accent-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+  .card {
+    @apply bg-white rounded-xl border border-brand-border shadow-card;
   }
-  .card-shadow {
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  .card-interactive {
+    @apply card hover:shadow-card-hover hover:border-gray-300 transition-all
+      duration-150 cursor-pointer;
   }
-  .glow-blue {
-    box-shadow: 0 0 20px rgba(79, 149, 255, 0.4);
+  .input-field {
+    @apply w-full border border-brand-border rounded-lg px-4 py-3 text-brand-dark
+      placeholder:text-gray-400 focus:ring-2 focus:ring-brand-green/20
+      focus:border-brand-green outline-none transition-all bg-white;
   }
 }

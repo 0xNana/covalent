@@ -2,35 +2,36 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="bg-deep-slate border-t border-white/5 pt-20 pb-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+    <footer className="bg-white border-t border-brand-border mt-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-2 mb-6">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-primary-blue to-primary-purple">
-                <span className="material-icons text-white text-xl">
-                  security
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
+                <span className="material-icons text-white text-lg">
+                  favorite
                 </span>
               </div>
-              <span className="text-2xl font-extrabold text-white tracking-tight">
+              <span className="text-xl font-extrabold text-brand-dark">
                 Covalent
               </span>
             </div>
-            <p className="text-slate-400 mb-6">
-              The privacy-first donation platform. Give anonymously
-              to causes you care about.
+            <p className="text-sm text-brand-muted leading-relaxed">
+              The fundraising platform where your donations stay private.
             </p>
           </div>
 
           {/* Platform */}
           <div>
-            <h4 className="font-bold text-white mb-6">Platform</h4>
-            <ul className="space-y-4 text-slate-400">
+            <h4 className="font-bold text-brand-dark mb-4 text-sm">
+              Platform
+            </h4>
+            <ul className="space-y-3 text-sm text-brand-muted">
               <li>
                 <Link
                   href="/donate"
-                  className="hover:text-primary-blue transition-colors"
+                  className="hover:text-brand-green transition-colors"
                 >
                   Donate
                 </Link>
@@ -38,74 +39,58 @@ export default function Footer() {
               <li>
                 <Link
                   href="/create"
-                  className="hover:text-primary-blue transition-colors"
+                  className="hover:text-brand-green transition-colors"
                 >
-                  Create Fund
+                  Start a Fund
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/admin"
-                  className="hover:text-primary-blue transition-colors"
+                  href="/private"
+                  className="hover:text-brand-green transition-colors"
                 >
-                  Admin Panel
+                  Make Private
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Technology */}
+          {/* About */}
           <div>
-            <h4 className="font-bold text-white mb-6">Technology</h4>
-            <ul className="space-y-4 text-slate-400">
+            <h4 className="font-bold text-brand-dark mb-4 text-sm">About</h4>
+            <ul className="space-y-3 text-sm text-brand-muted">
               <li>
-                <span className="hover:text-primary-blue transition-colors cursor-default">
-                  End-to-End Encryption
-                </span>
+                <span className="cursor-default">How It Works</span>
               </li>
               <li>
-                <span className="hover:text-primary-blue transition-colors cursor-default">
-                  Blockchain Verified
-                </span>
+                <span className="cursor-default">Privacy</span>
               </li>
               <li>
-                <span className="hover:text-primary-blue transition-colors cursor-default">
-                  Smart Contracts
-                </span>
+                <span className="cursor-default">Security</span>
               </li>
             </ul>
           </div>
 
-          {/* Resources */}
+          {/* Support */}
           <div>
-            <h4 className="font-bold text-white mb-6">Resources</h4>
-            <ul className="space-y-4 text-slate-400">
+            <h4 className="font-bold text-brand-dark mb-4 text-sm">Support</h4>
+            <ul className="space-y-3 text-sm text-brand-muted">
               <li>
-                <span className="hover:text-primary-blue transition-colors cursor-default">
-                  Documentation
-                </span>
+                <span className="cursor-default">Help Center</span>
               </li>
               <li>
-                <span className="hover:text-primary-blue transition-colors cursor-default">
-                  Privacy Model
-                </span>
+                <span className="cursor-default">Contact Us</span>
               </li>
               <li>
-                <span className="hover:text-primary-blue transition-colors cursor-default">
-                  Security Audit
-                </span>
+                <span className="cursor-default">Documentation</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500">
-          <p>&copy; 2026 Covalent Protocol. All rights reserved.</p>
-          <div className="flex gap-6 font-mono text-xs opacity-70">
-            <span>PRIVACY_FIRST</span>
-            <span>ENCRYPTED</span>
-            <span>ANONYMOUS</span>
-          </div>
+        <div className="border-t border-brand-border mt-10 pt-6 text-center text-xs text-brand-muted">
+          &copy; 2026 Covalent. All rights reserved. Your privacy is our
+          priority.
         </div>
       </div>
     </footer>

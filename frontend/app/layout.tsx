@@ -14,9 +14,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Covalent | Privacy-First Donation Platform",
+  title: "Covalent | Give Privately, Make a Difference",
   description:
-    "Donate anonymously to causes you believe in. Your contribution stays completely private — only you know how much you gave.",
+    "The fundraising platform where your donations are completely private. Support causes you believe in — nobody sees how much you gave.",
 };
 
 export default function RootLayout({
@@ -25,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <link
           href="https://fonts.googleapis.com/icon?family=Material+Icons"
@@ -42,7 +42,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${manrope.variable} ${jetbrains.variable} font-display bg-deep-slate text-soft-white min-h-screen`}
+        className={`${manrope.variable} ${jetbrains.variable} font-display bg-brand-bg-warm text-brand-body min-h-screen`}
       >
         <ClientShell>{children}</ClientShell>
       </body>

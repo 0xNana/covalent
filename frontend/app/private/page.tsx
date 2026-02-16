@@ -7,23 +7,23 @@ export default function PrivatePage() {
   const { isConnected } = useAccount();
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12 space-y-8">
+    <div className="max-w-lg mx-auto px-4 py-10 space-y-6">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-4xl font-extrabold text-white mb-2">
+        <h1 className="text-3xl font-extrabold text-brand-dark mb-1">
           Make Private
         </h1>
-        <p className="text-slate-400 max-w-lg mx-auto">
-          Convert your USDT to private tokens for anonymous donations,
-          or withdraw private tokens back to USDT.
+        <p className="text-brand-muted text-sm">
+          Convert USDT to private tokens for anonymous donations, or withdraw
+          back to USDT anytime.
         </p>
       </div>
 
       {/* Connect wallet prompt */}
       {!isConnected && (
-        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 px-6 py-4 rounded-xl text-sm flex items-center gap-3">
+        <div className="card border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700 flex items-center gap-3">
           <span className="material-icons text-lg">account_balance_wallet</span>
-          Please connect your wallet to manage your tokens.
+          Please connect your wallet to manage tokens.
         </div>
       )}
 
@@ -31,37 +31,34 @@ export default function PrivatePage() {
       <TokenManager />
 
       {/* How it works */}
-      <div className="bg-lighter-slate rounded-2xl p-8 border border-white/5 card-shadow">
-        <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-          <span className="material-icons text-primary-blue">info</span>
-          How It Works
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="card p-6">
+        <h3 className="font-bold text-brand-dark text-sm mb-4">How It Works</h3>
+        <div className="grid grid-cols-3 gap-4">
           {[
             {
               icon: "arrow_forward",
               title: "Make Private",
-              desc: "Convert USDT to private tokens that hide your balance",
+              desc: "Convert USDT to private tokens",
             },
             {
-              icon: "lock",
-              title: "Donate Anonymously",
-              desc: "Use private tokens to donate — nobody sees your amount",
+              icon: "favorite",
+              title: "Donate",
+              desc: "Give anonymously to any fund",
             },
             {
               icon: "arrow_back",
               title: "Withdraw",
-              desc: "Convert private tokens back to USDT anytime",
+              desc: "Convert back to USDT anytime",
             },
           ].map((step, i) => (
-            <div key={i} className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 rounded-xl bg-primary-purple/10 flex items-center justify-center text-primary-purple mb-3">
-                <span className="material-icons">{step.icon}</span>
+            <div key={i} className="text-center">
+              <div className="w-10 h-10 rounded-full bg-brand-green-light flex items-center justify-center text-brand-green mx-auto mb-2">
+                <span className="material-icons text-lg">{step.icon}</span>
               </div>
-              <h4 className="font-bold text-white text-sm mb-1">
+              <h4 className="font-bold text-brand-dark text-xs mb-0.5">
                 {step.title}
               </h4>
-              <p className="text-xs text-slate-500">{step.desc}</p>
+              <p className="text-[11px] text-brand-muted">{step.desc}</p>
             </div>
           ))}
         </div>
