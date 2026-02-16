@@ -1,33 +1,61 @@
 import { encryptDonationAmount } from "./fheClient";
-import { submitDonation as submitDonationToContract, getContractAddress } from "./contract";
+import {
+  getCUsdtAddress,
+  approveUsdt,
+  getUsdtAllowance,
+  wrapUsdtToCUsdt,
+  donateConfidential,
+} from "./contract";
+
+const MAX_UINT64 = 18_446_744_073_709_551_615n;
+const USDT_DECIMALS = 6;
 
 /**
- * Encrypt and submit a donation to a fund.
- * Handles the full flow: validate -> encrypt client-side -> submit to contract.
+ * Full donation flow: approve USDT -> wrap to cUSDT -> encrypt -> donate.
  *
  * @param fundId The fund to donate to
- * @param amount The plaintext donation amount (positive integer)
+ * @param amount The plaintext donation amount (in human-readable USDT units, e.g. 100 = $100)
  * @param userAddress The connected wallet address of the donor
+ * @param onStep Callback for UI progress updates
  */
 export async function encryptAndDonate(
   fundId: number,
   amount: number,
   userAddress: string,
+  onStep?: (step: string) => void,
 ): Promise<void> {
   if (amount <= 0 || !Number.isInteger(amount)) {
     throw new Error("Donation amount must be a positive integer");
   }
-  if (amount > 4_294_967_295) {
-    throw new Error("Donation amount exceeds maximum (uint32 limit)");
+
+  const rawAmount = BigInt(amount) * BigInt(10 ** USDT_DECIMALS);
+  if (rawAmount > MAX_UINT64) {
+    throw new Error("Donation amount exceeds maximum (uint64 limit)");
   }
 
-  const contractAddress = getContractAddress();
+  const cUsdtAddress = getCUsdtAddress();
 
+  // Step 1: Check allowance and approve USDT to cUSDT wrapper if needed
+  onStep?.("Checking USDT allowance...");
+  const currentAllowance = await getUsdtAllowance(userAddress, cUsdtAddress);
+  if (currentAllowance < rawAmount) {
+    onStep?.("Approving USDT...");
+    await approveUsdt(cUsdtAddress, rawAmount);
+  }
+
+  // Step 2: Wrap USDT → cUSDT
+  onStep?.("Wrapping USDT → cUSDT...");
+  await wrapUsdtToCUsdt(userAddress, rawAmount);
+
+  // Step 3: Encrypt the donation amount
+  onStep?.("Encrypting donation amount...");
   const { handle, inputProof } = await encryptDonationAmount(
-    contractAddress,
+    cUsdtAddress,
     userAddress,
-    amount,
+    rawAmount,
   );
 
-  await submitDonationToContract(fundId, handle, inputProof);
+  // Step 4: Donate via confidentialTransferAndCall
+  onStep?.("Submitting confidential donation...");
+  await donateConfidential(fundId, handle, inputProof);
 }

@@ -4,6 +4,14 @@
 
 This document identifies potential security threats to the Covalent platform and describes mitigation strategies. The threat model follows a structured approach analyzing assets, threats, vulnerabilities, and countermeasures.
 
+**Scope**: This analysis covers the MVP implementation (CovalentFund smart contract with euint64 FHE operations, ERC-7984 confidential tokens, Next.js frontend, and simplified MCP). Threats related to future components (account abstraction, off-chain middleware) are noted but not scored as active risks.
+
+### Assumptions
+
+- FHE operations use euint64 (not euint32) for encrypted amounts
+- Confidential tokens (e.g. cUSDT) follow ERC-7984; donations arrive via `confidentialTransferAndCall` → `onConfidentialTransferReceived` (IERC7984Receiver)
+- Token wrapping and encrypted balance accounting are handled by the ERC-7984 ConfidentialUSDT contract
+
 ## Assets
 
 ### Critical Assets
@@ -14,7 +22,7 @@ This document identifies potential security threats to the Covalent platform and
    - Donation patterns
 
 2. **Fund Integrity**
-   - Encrypted donation totals
+   - Per-fund per-token encrypted totals (separate mappings)
    - Fund configuration
    - Withdrawal authorization
 
@@ -137,7 +145,7 @@ This document identifies potential security threats to the Covalent platform and
 - ✅ Multi-signature requirements (future)
 - ✅ Recipient address verification
 - ✅ Reentrancy guards
-- ✅ Withdrawal amount matching decrypted total
+- ✅ Withdrawal via `confidentialTransfer` of cUSDT to recipient (per token after per-fund per-token reveal)
 - ✅ Fund closure/admin approval checks
 
 **Residual Risk**: Low
@@ -155,9 +163,9 @@ This document identifies potential security threats to the Covalent platform and
 **Impact**: Medium — Fund integrity compromised
 
 **Mitigation**:
-- ✅ Nonce-based duplicate prevention
-- ✅ Transaction hash tracking
-- ✅ On-chain validation
+- ✅ ERC-7984 token balances are encrypted at the token (cUSDT) level; double-spending is prevented by the ConfidentialUSDT contract’s encrypted balance accounting
+- ✅ Donor calls `confidentialTransferAndCall` on cUSDT; CovalentFund receives via `onConfidentialTransferReceived` (IERC7984Receiver)—no duplicate transfers of the same funds
+- ✅ On-chain validation of fund active status and time bounds
 
 **Residual Risk**: Low
 
@@ -220,7 +228,7 @@ This document identifies potential security threats to the Covalent platform and
 **Impact**: Critical — Fund loss, privacy breach
 
 **Mitigation**:
-- ✅ Comprehensive test coverage
+- ✅ Comprehensive test coverage (44 passing tests)
 - ✅ Formal verification (future)
 - ✅ Security audits
 - ✅ Bug bounty program
@@ -274,7 +282,7 @@ This document identifies potential security threats to the Covalent platform and
 
 ---
 
-### T11: Account Abstraction Exploits
+### T11: Account Abstraction Exploits **[Future — not in MVP]**
 
 **Description**: Vulnerabilities in account abstraction implementation.
 
@@ -285,13 +293,15 @@ This document identifies potential security threats to the Covalent platform and
 
 **Impact**: High — Unauthorized transactions
 
-**Mitigation**:
-- ✅ ERC-4337 standard compliance
-- ✅ Paymaster validation
-- ✅ Signature verification
-- ✅ Transaction validation
+**Mitigation** (planned for production):
+- ⬜ ERC-4337 standard compliance
+- ⬜ Paymaster validation
+- ⬜ Signature verification
+- ⬜ Transaction validation
 
-**Residual Risk**: Medium
+**Note**: Account abstraction is not implemented in the MVP. Users connect via MetaMask/injected wallets and pay their own gas. This threat becomes relevant when AA is integrated.
+
+**Residual Risk**: N/A (not yet implemented)
 
 ---
 
@@ -303,13 +313,15 @@ This document identifies potential security threats to the Covalent platform and
 - Timing analysis of FHE operations
 - Gas usage patterns
 - Transaction ordering
+- Ciphertext delta correlation (observing encrypted total changes per donation)
 
 **Impact**: Medium — Partial information leakage
 
 **Mitigation**:
 - ✅ Constant-time operations where possible
-- ✅ Noise addition to prevent pattern analysis
-- ✅ Transaction batching
+- ✅ `DonationReceived` event (includes token address) emits donation count/index instead of ciphertext handle, preventing correlation of individual donations with per-fund per-token encrypted total changes
+- ✅ ERC-7984 encrypted token ciphertexts are semantically secure (same plaintext produces different ciphertext)
+- ✅ Transaction batching (future)
 
 **Residual Risk**: Low-Medium
 
@@ -380,7 +392,7 @@ This document identifies potential security threats to the Covalent platform and
 | T8: Smart Contract Bugs | Medium | Critical | Medium | ✅ Partially Mitigated |
 | T9: DoS | Medium | Medium | Medium | ✅ Partially Mitigated |
 | T10: Data Leakage | Low | Medium | Low | ✅ Mitigated |
-| T11: AA Exploits | Medium | High | Medium | ✅ Partially Mitigated |
+| T11: AA Exploits | N/A | High | N/A | ⬜ Future (not in MVP) |
 | T12: Side-Channel | Low | Medium | Low | ✅ Partially Mitigated |
 
 ## Security Testing

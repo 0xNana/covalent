@@ -2,15 +2,16 @@
 
 ## Overview
 
-This document describes how Covalent integrates with Zama's FHEVM (Fully Homomorphic Encryption Virtual Machine) to enable confidential on-chain computations.
+This document describes how Covalent integrates with Zama's FHEVM (Fully Homomorphic Encryption Virtual Machine) and OpenZeppelin's ERC-7984 Confidential Token standard to enable confidential on-chain donations. All code samples are taken directly from the working implementation.
 
 ## FHEVM Architecture
 
-FHEVM enables smart contracts to perform computations on encrypted data without decryption. It uses the TFHE (Torus FHE) scheme, which supports:
+FHEVM enables smart contracts to perform arithmetic on encrypted data without decryption. It uses the FHE scheme, supporting:
 
-- **Encryption**: Client-side encryption of values
-- **On-Chain Operations**: Addition, subtraction, comparison on encrypted data
-- **Decryption**: Controlled decryption through relayer
+- **Encryption**: Client-side encryption via `@zama-fhe/relayer-sdk`
+- **On-Chain Operations**: Addition, subtraction, comparison on encrypted `euint64` values
+- **Access Control**: `FHE.allow()` / `FHE.allowThis()` / `FHE.allowTransient()` for ciphertext permission management
+- **Decryption**: Controlled decryption through the relayer/MCP
 
 ## Integration Components
 
@@ -19,374 +20,374 @@ FHEVM enables smart contracts to perform computations on encrypted data without 
 #### Dependencies
 
 ```solidity
-import "@fhevm/solidity/contracts/FHE.sol";
-import "@fhevm/solidity/contracts/euint32.sol";
+import {FHE, euint64, ebool} from "@fhevm/solidity/lib/FHE.sol";
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import {IERC7984} from "@openzeppelin/confidential-contracts/interfaces/IERC7984.sol";
+import {IERC7984Receiver} from "@openzeppelin/confidential-contracts/interfaces/IERC7984Receiver.sol";
 ```
 
 #### Core Types
 
-- `euint32`: Encrypted unsigned 32-bit integer
-- `ebool`: Encrypted boolean
-- `FHE`: Library for FHE operations
+- `euint64`: Internal encrypted unsigned 64-bit integer (contract-side)
+- `ebool`: Encrypted boolean (used for callback return values)
+- `FHE`: Library for all FHE operations
+- `ZamaEthereumConfig`: Base contract for FHEVM network configuration
+- `IERC7984Receiver`: Interface for contracts that accept confidential token transfers
 
-#### Example Contract
+#### CovalentFund Contract Pattern
 
 ```solidity
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
-import "@fhevm/solidity/contracts/FHE.sol";
-import "@fhevm/solidity/contracts/euint32.sol";
+import {FHE, euint64, ebool} from "@fhevm/solidity/lib/FHE.sol";
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import {IERC7984Receiver} from "@openzeppelin/confidential-contracts/interfaces/IERC7984Receiver.sol";
 
-contract CovalentFund {
-    using FHE for euint32;
-    
-    mapping(uint256 => euint32) private encryptedTotals;
-    
-    function donate(uint256 fundId, euint32 encryptedAmount) external {
-        // Add encrypted donation to encrypted total
-        encryptedTotals[fundId] = encryptedTotals[fundId].add(encryptedAmount);
-    }
-    
-    function getEncryptedTotal(uint256 fundId) external view returns (euint32) {
-        return encryptedTotals[fundId];
+contract CovalentFund is IERC7984Receiver, ZamaEthereumConfig {
+    // Per-fund per-token encrypted totals
+    mapping(uint256 => mapping(address => euint64)) private _encryptedTotals;
+
+    // IERC7984Receiver callback — donation entry point
+    function onConfidentialTransferReceived(
+        address operator,
+        address from,
+        euint64 amount,
+        bytes calldata data
+    ) external returns (ebool) {
+        uint256 fundId = abi.decode(data, (uint256));
+        address token = msg.sender; // The ERC-7984 token contract
+
+        // Homomorphic addition — no decryption
+        euint64 currentTotal = _encryptedTotals[fundId][token];
+        if (!FHE.isInitialized(currentTotal)) {
+            currentTotal = FHE.asEuint64(0);
+        }
+        euint64 newTotal = FHE.add(currentTotal, amount);
+        FHE.allowThis(newTotal);
+        FHE.allow(newTotal, from);
+        _encryptedTotals[fundId][token] = newTotal;
+
+        // Allow the calling token contract to use the returned ebool
+        ebool accepted = FHE.asEbool(true);
+        FHE.allow(accepted, msg.sender);
+        return accepted;
     }
 }
 ```
 
-### 2. Client-Side Encryption
+**Critical ACL patterns:**
+1. `FHE.allowThis(newTotal)` — grants the CovalentFund contract access to the updated total for future `FHE.add()` operations.
+2. `FHE.allow(accepted, msg.sender)` — grants the calling cUSDT contract access to the returned `ebool` so it can execute `FHE.select()` in its refund logic.
+3. `FHE.allowTransient(encAmount, token)` — grants the token contract one-time access during `withdraw()` for `confidentialTransfer`.
+
+### 2. ERC-7984 Token Integration
+
+#### ConfidentialUSDT (ERC7984ERC20Wrapper)
+
+```solidity
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import {ERC7984} from "@openzeppelin/confidential-contracts/token/ERC7984/ERC7984.sol";
+import {ERC7984ERC20Wrapper} from "@openzeppelin/confidential-contracts/token/ERC7984/extensions/ERC7984ERC20Wrapper.sol";
+
+contract ConfidentialUSDT is ZamaEthereumConfig, ERC7984ERC20Wrapper {
+    constructor(
+        IERC20 underlying_
+    ) ERC7984("Confidential USDT", "cUSDT", "") ERC7984ERC20Wrapper(underlying_) {}
+}
+```
+
+The wrapper provides:
+- `wrap(to, amount)` — locks ERC-20 tokens, mints encrypted cUSDT
+- `unwrap(from, to, amount)` — burns cUSDT, requests FHE decryption
+- `finalizeUnwrap(...)` — after relayer decrypts, releases ERC-20 tokens
+- `confidentialTransferAndCall(to, handle, proof, data)` — encrypted transfer with callback
+
+### 3. Client-Side Encryption
 
 #### Installation
 
 ```bash
-npm install @fhevm/js
+npm install @zama-fhe/relayer-sdk
 ```
 
 #### Initialization
 
 ```typescript
-import { FhevmInstance, createInstance } from "@fhevm/js";
+import { createInstance } from "@zama-fhe/relayer-sdk";
 
-// Initialize FHEVM instance
 const instance = await createInstance({
-  chainId: 11155111, // Sepolia
-  publicKey: contractPublicKey, // From contract
+  network: rpcUrl,   // Sepolia RPC or localhost
+  aclAddress: "0x...",
+  kmsAddress: "0x...",
 });
 ```
 
-#### Encryption
+#### Encrypting a Donation Amount
 
 ```typescript
-// Encrypt donation amount
-const donationAmount = 100; // Plaintext amount
-const encryptedAmount = instance.encrypt32(donationAmount);
+// Create encrypted input bound to contract + user address
+const input = instance.createEncryptedInput(cUsdtAddress, userAddress);
+input.add64(amount);  // euint64 — amount in token decimals
+const encrypted = await input.encrypt();
 
-// Send to contract
-await contract.donate(fundId, encryptedAmount);
+// encrypted.handles[0] = bytes32 handle
+// encrypted.inputProof = bytes proof
+
+// Submit via confidentialTransferAndCall on the cUSDT contract
+const encodedFundId = ethers.AbiCoder.defaultAbiCoder().encode(["uint256"], [fundId]);
+await cUsdt.confidentialTransferAndCall(fundAddress, encrypted.handles[0], encrypted.inputProof, encodedFundId);
 ```
 
-### 3. Relayer Integration (MCP)
+**Important**: The `createEncryptedInput` pattern binds the ciphertext to a specific contract address and user address. This prevents replay attacks.
 
-The Managed Control Process (MCP) handles decryption of aggregated totals.
+### 4. Relayer / MCP Integration
 
-#### Relayer Setup
+The Managed Control Process handles decryption of aggregated totals.
 
-```typescript
-import { Relayer } from "@zama-fhe/relayer-sdk";
+**MVP approach** (current implementation): The contract owner acts as the MCP, calling `revealTotal()` after performing off-chain decryption.
 
-const relayer = new Relayer({
-  endpoint: process.env.MCP_ENDPOINT,
-  apiKey: process.env.MCP_API_KEY,
-});
-```
-
-#### Decryption Request
+**Production approach**: A dedicated relayer service with HSM-backed key management using the `@zama-fhe/relayer-sdk`:
 
 ```typescript
-// Request decryption of aggregated total
-const encryptedTotal = await contract.getEncryptedTotal(fundId);
-const decryptedTotal = await relayer.decrypt(encryptedTotal, {
-  authorization: adminSignature,
-  fundId: fundId,
-});
+import { createInstance } from "@zama-fhe/relayer-sdk";
+
+const instance = await createInstance({ network: rpcUrl });
+// Decrypt aggregated total only (never individual donations)
 ```
 
 ## Development Workflow
 
-### 1. Local Development
+### 1. Local Development (FHEVM Mock)
+
+The FHEVM Hardhat plugin provides a mock environment that simulates FHE operations locally.
 
 #### Hardhat Configuration
 
 ```typescript
 // hardhat.config.ts
+import { config as dotenvConfig } from "dotenv";
+import { resolve } from "path";
+
+dotenvConfig({ path: resolve(__dirname, "../.env.local") });
+
 import "@fhevm/hardhat-plugin";
 
-export default {
-  solidity: "0.8.20",
+const config: HardhatUserConfig = {
+  solidity: {
+    version: "0.8.27",
+    settings: {
+      optimizer: { enabled: true, runs: 800 },
+      evmVersion: "cancun",
+    },
+  },
   networks: {
     hardhat: {
-      fhevm: {
-        network: "hardhat",
-      },
+      accounts: { mnemonic: MNEMONIC },
+      chainId: 31337,
+    },
+    sepolia: {
+      accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 11155111,
+      url: process.env.RPC_URL || "https://sepolia.infura.io/v3/YOUR_KEY",
     },
   },
 };
 ```
 
-#### Testing with Mock FHEVM
+#### Testing with FHEVM Mock
+
+This is the pattern used in `test/CovalentFund.ts`:
 
 ```typescript
-import { getInstance } from "@fhevm/mock-utils";
+import { ethers, fhevm, network } from "hardhat";
 
-describe("CovalentFund", () => {
-  let instance: FhevmInstance;
-  
-  beforeEach(async () => {
-    instance = await getInstance();
+describe("CovalentFund (ERC-7984)", function () {
+  beforeEach(async function () {
+    if (!fhevm.isMock) this.skip();
   });
-  
-  it("should add encrypted donations", async () => {
-    const amount = instance.encrypt32(100);
-    await contract.donate(fundId, amount);
-    // ...
+
+  it("should accept a donation via confidentialTransferAndCall", async function () {
+    // Wrap USDT → cUSDT
+    await usdt.mint(alice.address, amount);
+    await usdt.connect(alice).approve(cUsdtAddress, amount);
+    await cUsdt.connect(alice).wrap(alice.address, amount);
+
+    // Encrypt and donate
+    const encodedFundId = ethers.AbiCoder.defaultAbiCoder().encode(["uint256"], [1]);
+    const encrypted = await fhevm
+      .createEncryptedInput(cUsdtAddress, alice.address)
+      .add64(amount)
+      .encrypt();
+
+    await cUsdt
+      .connect(alice)
+      ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](
+        fundAddress,
+        encrypted.handles[0],
+        encrypted.inputProof,
+        encodedFundId,
+      );
+
+    const f = await fund.getFund(1);
+    expect(f.donationCount).to.equal(1);
   });
 });
 ```
 
-### 2. Sepolia Testnet
+**Key testing utilities:**
+- `fhevm.createEncryptedInput(contract, signer)` — create encrypted input
+- `.add64(value)` — add a 64-bit integer to the encrypted input
+- `.encrypt()` — returns `{ handles: bytes32[], inputProof: bytes }`
+- `fhevm.isMock` — check if running in mock mode
 
-#### Network Configuration
+## FHE Operations Used in Covalent
 
-```typescript
-// hardhat.config.ts
-networks: {
-  sepolia: {
-    url: process.env.RPC_URL,
-    accounts: [process.env.DEPLOYER_PRIVATE_KEY],
-    fhevm: {
-      network: "sepolia",
-      relayerUrl: "https://relayer.sepolia.fhevm.eth.limo",
-    },
-  },
-}
-```
+### Operations
 
-#### Getting Public Key
+| Operation | Description | Used In |
+|-----------|-------------|---------|
+| `FHE.asEuint64(0)` | Create encrypted zero | Initialize fund token total |
+| `FHE.asEbool(true)` | Create encrypted boolean | Accept donation callback |
+| `FHE.add(a, b)` | Ciphertext addition | Accumulate donations |
+| `FHE.isInitialized(handle)` | Check if handle exists | Lazy initialization |
+| `FHE.allowThis(handle)` | Grant contract access | Enable FHE ops on stored values |
+| `FHE.allow(handle, addr)` | Grant address access | Enable callback return / user access |
+| `FHE.allowTransient(handle, addr)` | Grant one-tx access | Withdrawal transfer |
 
-```typescript
-// Deploy script
-const publicKey = await hre.fhevm.getPublicKey();
-console.log("Contract public key:", publicKey);
-```
-
-## FHE Operations
-
-### Supported Operations
-
-#### Arithmetic Operations
+### ACL Patterns
 
 ```solidity
-// Addition
-euint32 result = a.add(b);
+// Pattern 1: After accumulating — allow contract to use updated total
+euint64 newTotal = FHE.add(currentTotal, amount);
+FHE.allowThis(newTotal);           // contract can use in next add()
+FHE.allow(newTotal, from);         // donor can decrypt (optional)
 
-// Subtraction
-euint32 result = a.sub(b);
+// Pattern 2: Callback return — allow calling token to use the ebool
+ebool accepted = FHE.asEbool(true);
+FHE.allow(accepted, msg.sender);   // cUSDT needs this for FHE.select()
+return accepted;
 
-// Multiplication (limited support)
-euint32 result = a.mul(b);
-```
-
-#### Comparison Operations
-
-```solidity
-// Less than
-ebool isLess = a.lt(b);
-
-// Less than or equal
-ebool isLessOrEqual = a.le(b);
-
-// Greater than
-ebool isGreater = a.gt(b);
-
-// Greater than or equal
-ebool isGreaterOrEqual = a.ge(b);
-
-// Equal
-ebool isEqual = a.eq(b);
-```
-
-#### Re-encryption
-
-```solidity
-// Re-encrypt with new key
-euint32 reencrypted = FHE.reencrypt(a, publicKey);
+// Pattern 3: Withdrawal — temporary access for confidentialTransfer
+euint64 encAmount = FHE.asEuint64(uint64(amount));
+FHE.allowTransient(encAmount, token);  // token needs this for _update()
+IERC7984(token).confidentialTransfer(recipient, encAmount);
 ```
 
 ### Limitations
 
 1. **No Division**: Division not supported in TFHE
-2. **Limited Multiplication**: Expensive, use sparingly
-3. **Comparison Costs**: Comparisons are gas-intensive
-4. **Type Constraints**: Operations only on same encrypted types
+2. **Limited Multiplication**: Expensive, not used in Covalent
+3. **Type Constraints**: All operands must be the same encrypted type
+4. **Access Control**: Every ciphertext needs explicit `allow()` calls
+5. **Gas Costs**: FHE operations cost significantly more gas than plaintext operations
 
 ## Best Practices
 
-### 1. Gas Optimization
-
-- **Batch Operations**: Group multiple operations
-- **Minimize Comparisons**: Use arithmetic where possible
-- **Cache Results**: Store frequently accessed encrypted values
-
-### 2. Security
-
-- **Never Decrypt Individual Donations**: Only aggregates
-- **Validate Inputs**: Check encrypted value ranges
-- **Authorization**: Verify permissions before decryption
-
-### 3. Error Handling
+### 1. Always Allow After FHE Operations
 
 ```solidity
-function donate(uint256 fundId, euint32 encryptedAmount) external {
-    require(fundExists(fundId), "Fund does not exist");
-    require(fundActive(fundId), "Fund not active");
-    
-    // Validate encrypted amount is within bounds
-    ebool isValid = encryptedAmount.le(FHE.asEuint32(MAX_DONATION));
-    require(FHE.decrypt(isValid), "Donation too large");
-    
-    encryptedTotals[fundId] = encryptedTotals[fundId].add(encryptedAmount);
-}
+// WRONG — will revert with ACLNotAllowed on next FHE.add()
+_encryptedTotals[fundId][token] = FHE.add(total, amount);
+
+// CORRECT
+euint64 newTotal = FHE.add(total, amount);
+FHE.allowThis(newTotal);
+_encryptedTotals[fundId][token] = newTotal;
 ```
 
-## Relayer Configuration
+### 2. Allow the Calling Contract for Callback Returns
 
-### MCP Setup
+```solidity
+// WRONG — cUSDT's _transferAndCall will revert on FHE.select(success, ...)
+return FHE.asEbool(true);
 
-The Managed Control Process (MCP) requires:
-
-1. **Key Management**: Secure storage of decryption keys
-2. **Authorization**: Verify on-chain permissions
-3. **Audit Logging**: Log all decryption operations
-4. **Rate Limiting**: Prevent abuse
-
-### Relayer Endpoints
-
+// CORRECT
+ebool accepted = FHE.asEbool(true);
+FHE.allow(accepted, msg.sender);
+return accepted;
 ```
-POST /decrypt
-{
-  "ciphertext": "...",
-  "authorization": "...",
-  "fundId": 123
-}
 
-Response:
-{
-  "plaintext": 1000,
-  "timestamp": "..."
-}
+### 3. Use allowTransient for Cross-Contract Calls
+
+```solidity
+// When calling confidentialTransfer on another contract:
+FHE.allowTransient(encAmount, token);
+IERC7984(token).confidentialTransfer(recipient, encAmount);
+```
+
+### 4. Don't Emit Encrypted Handles in Events
+
+```solidity
+// WRONG — leaks ciphertext correlation data
+emit DonationReceived(fundId, token, donor, encryptedTotal);
+
+// CORRECT — only emits a sequential counter
+emit DonationReceived(fundId, token, donor, donationCount, block.timestamp);
+```
+
+### 5. Use `fhevm.isMock` Guard in Tests
+
+```typescript
+beforeEach(async function () {
+  if (!fhevm.isMock) {
+    console.warn("Requires FHEVM mock environment");
+    this.skip();
+  }
+});
 ```
 
 ## Troubleshooting
 
-### Common Issues
+### ACLNotAllowed Error
 
-#### 1. Public Key Mismatch
+**Error**: `FHEVM access permission verification error 'ACLNotAllowed()'`
 
-**Error**: "Public key does not match"
+**Cause**: A contract is trying to use a ciphertext handle it doesn't have access to.
 
-**Solution**: Ensure contract public key matches client initialization
+**Solutions**:
+1. Call `FHE.allowThis(handle)` after every operation that produces a new handle stored in contract state.
+2. Call `FHE.allow(handle, addr)` when returning encrypted values to another contract.
+3. Call `FHE.allowTransient(handle, addr)` when passing encrypted values to external calls.
 
-```typescript
-const publicKey = await contract.getPublicKey();
-const instance = await createInstance({
-  chainId: 11155111,
-  publicKey: publicKey,
-});
-```
+### Gas Estimation Failures
 
-#### 2. Network Configuration
+**Error**: `Gas estimation failed` or transaction runs out of gas
 
-**Error**: "FHEVM network not configured"
-
-**Solution**: Configure FHEVM in Hardhat config
+**Solution**: FHE operations require ~5M gas. Increase gas limit:
 
 ```typescript
-networks: {
-  sepolia: {
-    fhevm: {
-      network: "sepolia",
-    },
-  },
-}
+await cUsdt.confidentialTransferAndCall(fund, handle, proof, data, { gasLimit: 5_000_000 });
 ```
 
-#### 3. Gas Estimation Failures
+### Mock vs. Testnet Differences
 
-**Error**: "Gas estimation failed"
-
-**Solution**: FHE operations are gas-intensive, increase gas limits
-
-```typescript
-const tx = await contract.donate(fundId, encryptedAmount, {
-  gasLimit: 5000000, // Higher gas limit
-});
-```
-
-## Testing Strategy
-
-### Unit Tests
-
-```typescript
-describe("FHE Operations", () => {
-  it("should add encrypted values", async () => {
-    const a = instance.encrypt32(50);
-    const b = instance.encrypt32(30);
-    await contract.addDonations(fundId, a, b);
-    const total = await contract.getEncryptedTotal(fundId);
-    // Verify encrypted total (cannot decrypt in tests)
-  });
-});
-```
-
-### Integration Tests
-
-```typescript
-describe("End-to-End Donation", () => {
-  it("should encrypt, donate, and reveal", async () => {
-    // 1. Encrypt donation
-    const amount = instance.encrypt32(100);
-    
-    // 2. Submit donation
-    await contract.donate(fundId, amount);
-    
-    // 3. Request reveal
-    await contract.requestReveal(fundId);
-    
-    // 4. MCP decrypts and returns
-    const total = await contract.getRevealedTotal(fundId);
-    expect(total).to.equal(100);
-  });
-});
-```
-
-## Resources
-
-- [FHEVM Documentation](https://docs.zama.ai/fhevm)
-- [FHEVM Solidity Library](https://github.com/zama-ai/fhevm-solidity)
-- [FHEVM JavaScript SDK](https://github.com/zama-ai/fhevm-js)
-- [Zama Relayer SDK](https://github.com/zama-ai/relayer-sdk)
+The FHEVM mock environment processes FHE operations synchronously and deterministically. On Sepolia, decryption requires the relayer and may be asynchronous. Use `fhevm.isMock` to gate test behavior.
 
 ## Version Compatibility
 
-| Component | Version |
-|-----------|---------|
-| @fhevm/solidity | ^0.10.0 |
-| @fhevm/js | ^0.4.0 |
-| @fhevm/hardhat-plugin | ^0.4.0 |
-| Solidity | ^0.8.20 |
+| Component | Version | Notes |
+|-----------|---------|-------|
+| @fhevm/solidity | ^0.10.0 | Smart contract FHE library |
+| @fhevm/hardhat-plugin | ^0.4.0 | Hardhat integration + mock |
+| @zama-fhe/relayer-sdk | ^0.4.0 | Client-side encryption (replaces @fhevm/js) |
+| @fhevm/mock-utils | ^0.4.0 | Testing utilities |
+| @openzeppelin/confidential-contracts | ^0.3.1 | ERC-7984, ERC7984ERC20Wrapper |
+| Solidity | 0.8.27 | Compiler version |
+| Hardhat | ^2.28.4 | Build framework |
+| ethers | ^6.16.0 | Ethereum library |
+
+## Resources
+
+- [Zama FHEVM Documentation](https://docs.zama.ai/fhevm)
+- [FHEVM Solidity Library](https://github.com/zama-ai/fhevm-solidity)
+- [FHEVM Hardhat Plugin](https://github.com/zama-ai/fhevm-hardhat-plugin)
+- [Zama Relayer SDK](https://github.com/zama-ai/relayer-sdk) (replaces @fhevm/js)
+- [OpenZeppelin Confidential Contracts](https://github.com/OpenZeppelin/openzeppelin-confidential-contracts)
+- [FHEVM Hardhat Template](https://github.com/zama-ai/fhevm-hardhat-template)
 
 ---
 
 For questions or issues, refer to:
-- [Zama Documentation](https://docs.zama.ai)
 - [Covalent Architecture](./architecture.md)
 - [Threat Model](./threat-model.md)

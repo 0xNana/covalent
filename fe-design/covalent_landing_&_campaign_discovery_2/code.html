@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Covalent | All-in-One Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "deep-slate": "#121826",
+              "lighter-slate": "#1c2536",
+              "soft-white": "#f8fafc",
+              "primary-blue": "#4f95ff",
+              "primary-purple": "#a78bfa",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"],
+              "mono": ["'JetBrains Mono'", "monospace"]
+            },
+            borderRadius: {
+              "DEFAULT": "0.5rem",
+              "lg": "0.75rem",
+              "xl": "1rem",
+              "2xl": "1.5rem",
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style type="text/tailwindcss">
+        :root {
+            --bg-main: #121826;
+            --bg-card: #1c2536;
+            --accent-gradient: linear-gradient(135deg, #a78bfa 0%, #4f95ff 100%);
+        }
+        body { 
+            font-family: 'Manrope', sans-serif;
+            background-color: var(--bg-main);
+            color: #f8fafc;
+        }
+        .gradient-btn {
+            background: var(--accent-gradient);
+            transition: all 0.3s ease;
+        }
+        .gradient-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.5);
+        }
+        .circular-progress {
+            background: conic-gradient(from 0deg, #4f95ff 0%, #a78bfa 75%, transparent 75%);
+        }
+    </style>
+</head>
+<body class="bg-deep-slate text-soft-white font-display min-h-screen">
+<nav class="sticky top-0 z-50 bg-deep-slate/80 backdrop-blur-md border-b border-white/5">
+<div class="max-w-5xl mx-auto px-6">
+<div class="flex justify-between h-20 items-center">
+<div class="flex items-center gap-3">
+<div class="p-2 rounded-lg bg-gradient-to-br from-primary-purple to-primary-blue">
+<span class="material-symbols-outlined text-white text-2xl font-bold">lock</span>
+</div>
+<span class="text-2xl font-extrabold tracking-tight text-white">Covalent</span>
+</div>
+<div class="hidden md:flex items-center space-x-1 bg-white/5 p-1 rounded-xl border border-white/5">
+<a class="px-6 py-2 rounded-lg bg-primary-blue/10 text-primary-blue font-bold text-sm" href="#">Donate</a>
+<a class="px-6 py-2 rounded-lg text-slate-400 hover:text-white transition-colors font-medium text-sm" href="#">Fund Overview</a>
+<a class="px-6 py-2 rounded-lg text-slate-400 hover:text-white transition-colors font-medium text-sm" href="#">Admin Panel</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<span class="font-mono text-xs text-slate-300">0x4F...e2A</span>
+</button>
+</div>
+</div>
+</div>
+</nav>
+<main class="max-w-4xl mx-auto px-6 py-12 space-y-8">
+<section class="bg-lighter-slate rounded-2xl border border-white/10 p-8 card-shadow">
+<div class="flex flex-col md:flex-row items-center gap-10">
+<div class="relative flex-shrink-0">
+<div class="w-40 h-40 rounded-full border-8 border-white/5 flex items-center justify-center relative overflow-hidden">
+<div class="absolute inset-0 circular-progress opacity-20"></div>
+<div class="text-center z-10">
+<span class="block text-3xl font-extrabold text-white">75%</span>
+<span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Goal Progress</span>
+</div>
+</div>
+</div>
+<div class="flex-grow space-y-4 text-center md:text-left">
+<div>
+<h2 class="text-2xl font-bold text-white mb-1">Global Reforestation Initiative</h2>
+<p class="text-slate-400 text-sm">Target goal for Q4 verified environmental impact projects.</p>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="bg-deep-slate/50 p-4 rounded-xl border border-white/5">
+<p class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Encrypted Total</p>
+<p class="text-xl font-mono text-primary-blue">******** ETH</p>
+</div>
+<div class="bg-deep-slate/50 p-4 rounded-xl border border-white/5">
+<p class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Donor Count</p>
+<p class="text-xl font-mono text-primary-purple">********</p>
+</div>
+</div>
+<div class="flex items-center gap-2 text-xs text-slate-500 justify-center md:justify-start">
+<span class="material-symbols-outlined text-sm text-primary-blue">security</span>
+<span>FHE Aggregation active. Individual values remain encrypted.</span>
+</div>
+</div>
+</div>
+</section>
+<section class="bg-lighter-slate rounded-2xl border border-white/10 p-8 card-shadow">
+<div class="max-w-xl mx-auto">
+<div class="text-center mb-8">
+<h3 class="text-xl font-bold text-white">Make a Private Donation</h3>
+<p class="text-slate-400 text-sm mt-1">Your contribution is encrypted locally before being sent.</p>
+</div>
+<div class="space-y-6">
+<div class="relative group">
+<label class="absolute -top-2.5 left-4 bg-lighter-slate px-2 text-xs font-bold text-primary-blue uppercase tracking-widest">Amount</label>
+<div class="flex items-center">
+<input class="w-full bg-deep-slate/50 border-white/10 border-2 rounded-xl px-6 py-4 text-2xl font-mono text-white focus:ring-2 focus:ring-primary-blue/30 focus:border-primary-blue outline-none transition-all placeholder:text-slate-700" placeholder="0.00" type="text"/>
+<div class="absolute right-4 px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-slate-300 font-bold">ETH</div>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 justify-center">
+<button class="px-4 py-2 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 text-sm font-medium transition-colors text-slate-300">+0.1 ETH</button>
+<button class="px-4 py-2 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 text-sm font-medium transition-colors text-slate-300">+0.5 ETH</button>
+<button class="px-4 py-2 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 text-sm font-medium transition-colors text-slate-300">+1.0 ETH</button>
+<button class="px-4 py-2 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 text-sm font-medium transition-colors text-slate-300">Max</button>
+</div>
+<button class="w-full gradient-btn py-4 rounded-xl text-white font-extrabold text-lg flex items-center justify-center gap-3 shadow-xl">
+<span class="material-symbols-outlined font-bold">shield_with_heart</span>
+                        Donate Privately
+                    </button>
+<p class="text-[10px] text-center text-slate-500 uppercase tracking-widest leading-relaxed">
+                        SECURED BY FULLY HOMOMORPHIC ENCRYPTION (FHE) <br/> 
+                        ZERO KNOWLEDGE PROOFS ENABLED
+                    </p>
+</div>
+</div>
+</section>
+<section class="bg-lighter-slate rounded-2xl border border-white/10 overflow-hidden card-shadow">
+<div class="px-8 py-5 border-b border-white/5 flex justify-between items-center">
+<h3 class="font-bold text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-blue text-xl">history</span>
+                    Recent Network Activity
+                </h3>
+<span class="text-xs text-slate-500 font-mono">Real-time Updates</span>
+</div>
+<div class="divide-y divide-white/5">
+<div class="px-8 py-4 flex items-center justify-between hover:bg-white/5 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-blue/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-blue text-lg">check_circle</span>
+</div>
+<div>
+<p class="text-sm font-medium text-white">Anonymous Contribution</p>
+<p class="text-xs text-slate-500 font-mono">Tx: 0x8a2d...4f1e</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-mono text-slate-300">******** ETH</p>
+<p class="text-[10px] text-slate-500 uppercase">2 mins ago</p>
+</div>
+</div>
+<div class="px-8 py-4 flex items-center justify-between hover:bg-white/5 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-purple/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-purple text-lg">check_circle</span>
+</div>
+<div>
+<p class="text-sm font-medium text-white">Anonymous Contribution</p>
+<p class="text-xs text-slate-500 font-mono">Tx: 0x3c9f...d21b</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-mono text-slate-300">******** ETH</p>
+<p class="text-[10px] text-slate-500 uppercase">14 mins ago</p>
+</div>
+</div>
+<div class="px-8 py-4 flex items-center justify-between hover:bg-white/5 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-blue/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-blue text-lg">check_circle</span>
+</div>
+<div>
+<p class="text-sm font-medium text-white">Anonymous Contribution</p>
+<p class="text-xs text-slate-500 font-mono">Tx: 0x921e...bb40</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-mono text-slate-300">******** ETH</p>
+<p class="text-[10px] text-slate-500 uppercase">42 mins ago</p>
+</div>
+</div>
+</div>
+<button class="w-full py-4 text-sm font-bold text-slate-400 hover:text-primary-blue hover:bg-white/5 border-t border-white/5 transition-all">
+                View On-Chain Ledger
+            </button>
+</section>
+</main>
+<footer class="max-w-4xl mx-auto px-6 pb-12 pt-8">
+<div class="flex flex-col md:flex-row justify-between items-center gap-4 border-t border-white/5 pt-8">
+<div class="flex items-center gap-6">
+<span class="text-xs text-slate-500 font-bold uppercase tracking-widest">Covalent Protocol © 2024</span>
+<a class="text-xs text-slate-500 hover:text-white transition-colors" href="#">Privacy Policy</a>
+<a class="text-xs text-slate-500 hover:text-white transition-colors" href="#">Security Audit</a>
+</div>
+<div class="flex items-center gap-2 opacity-40">
+<span class="text-[10px] font-mono text-primary-blue">ENCRYPTED_STATE_SYNCED</span>
+<div class="w-1.5 h-1.5 rounded-full bg-primary-blue"></div>
+</div>
+</div>
+</footer>
+
+</body></html>

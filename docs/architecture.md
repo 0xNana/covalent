@@ -2,329 +2,323 @@
 
 ## Overview
 
-Covalent is a four-layer architecture designed to enable confidential donations using Fully Homomorphic Encryption (FHE). This document describes the system architecture, design decisions, and component interactions.
+Covalent is a confidential donation platform built on Zama's FHEVM and OpenZeppelin's ERC-7984 Confidential Token standard. The system enables donors to wrap standard ERC-20 tokens into confidential ERC-7984 tokens and contribute encrypted amounts to on-chain funds. Individual donation amounts remain encrypted permanently; only aggregated per-token totals can be revealed through an authorized process.
+
+This document describes the current MVP architecture as built for the Zama Developer Program Builder Track.
 
 ## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Application Layer                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │  Web UI      │  │  Mobile App  │  │  Admin Panel │     │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘     │
-└─────────┼─────────────────┼─────────────────┼──────────────┘
-          │                 │                 │
-          └─────────────────┼─────────────────┘
-                            │
-┌───────────────────────────▼──────────────────────────────────┐
-│                    Middleware Layer                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │   Account    │  │  Identity    │  │  Encryption  │     │
-│  │ Abstraction  │  │  Management  │  │   Helpers    │     │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘     │
-│  ┌──────────────┐  ┌──────────────┐                        │
-│  │   Payment    │  │  Fund        │                        │
-│  │ Integration  │  │  Management  │                        │
-│  └──────┬───────┘  └──────┬───────┘                        │
-└─────────┼─────────────────┼──────────────────────────────────┘
-          │                 │
-          └─────────────────┘
-                            │
-┌───────────────────────────▼──────────────────────────────────┐
-│                    Protocol Layer                            │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │         CovalentFund Smart Contract                  │   │
-│  │  • Fund Creation & Management                        │   │
-│  │  • Encrypted Donation Processing                     │   │
-│  │  • FHE Tally Operations                             │   │
-│  │  • Reveal Request Handling                           │   │
-│  │  • Withdrawal Management                             │   │
-│  └───────────────────┬──────────────────────────────────┘   │
-└──────────────────────┼───────────────────────────────────────┘
-                       │
-                       │ Encrypted Data
-                       │
-┌──────────────────────▼───────────────────────────────────────┐
-│                    Relayer Layer (MCP)                       │
+│  │  Next.js 16 Frontend (App Router)                    │   │
+│  │  • Landing page, Create Fund, Donate, Admin Panel    │   │
+│  │  • Token Manager: wrap/unwrap USDT ↔ cUSDT           │   │
+│  │  • wagmi wallet connect (MetaMask / injected)        │   │
+│  │  • Client-side FHE encryption via @zama-fhe/relayer-sdk│ │
+│  │  • Tailwind CSS responsive dark UI                   │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+└──────────────────────────┼───────────────────────────────────┘
+                           │ approve → wrap → confidentialTransferAndCall
+┌──────────────────────────▼───────────────────────────────────┐
+│                    Token Layer (ERC-7984 + ERC-20)            │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │         Managed Control Process                      │   │
-│  │  • Authorization Verification                       │   │
-│  │  • Aggregated Total Decryption                      │   │
-│  │  • Key Management                                   │   │
-│  └─────────────────────────────────────────────────────┘   │
-└───────────────────────────────────────────────────────────────┘
+│  │  MockUSDT (ERC-20) — Standard test token, 6 decimals│   │
+│  │  ConfidentialUSDT (ERC7984ERC20Wrapper) — cUSDT      │   │
+│  │  • wrap(to, amount) — USDT → cUSDT                  │   │
+│  │  • unwrap(from, to, amount) — cUSDT → USDT          │   │
+│  │  • confidentialTransferAndCall → donation callback   │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+└──────────────────────────┼───────────────────────────────────┘
+                           │ onConfidentialTransferReceived(euint64)
+┌──────────────────────────▼───────────────────────────────────┐
+│                    Protocol Layer                             │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  CovalentFund Smart Contract (Solidity 0.8.27)       │   │
+│  │  • Implements IERC7984Receiver                       │   │
+│  │  • Per-fund per-token euint64 encrypted totals       │   │
+│  │  • FHE.add() homomorphic accumulation                │   │
+│  │  • Per-token reveal request & authorization          │   │
+│  │  • Per-token withdrawal (confidentialTransfer)       │   │
+│  │  • Owner-managed token whitelist                     │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+└──────────────────────────┼───────────────────────────────────┘
+                           │ encrypted total (euint64 ciphertext)
+┌──────────────────────────▼───────────────────────────────────┐
+│                    Relayer Layer                             │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │  Managed Control Process                              │   │
+│  │  • Authorization Verification                         │   │
+│  │  • Aggregated Total Decryption Only                   │   │
+│  │  • Key Management                                     │   │
+│  │  • Individual donations never decrypted               │   │
+│  └──────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Layer Descriptions
 
 ### 1. Application Layer
 
-The Application Layer provides user interfaces for donors and fund managers.
+The Application Layer provides the web interface for donors and fund managers.
 
-**Components:**
-- **Web UI**: Next.js-based web application for donors
-- **Mobile App**: React Native application (future)
-- **Admin Panel**: Management interface for organizations
-
-**Responsibilities:**
-- User authentication and session management
-- Client-side encryption of donation amounts
-- Display of fund information and encrypted tallies
-- Transaction initiation and status tracking
+**Implemented Components (MVP):**
+- **Landing Page**: Project overview, how-it-works flow, use cases, technology
+- **Create Fund**: Form for creating on-chain donation funds; title/description stored in localStorage, only recipient and duration (start/end time) go on-chain
+- **Donate Page**: Multi-step encrypted donation (approve USDT → wrap to cUSDT → encrypt → donate)
+- **Fund Detail Page**: Fund info, encrypted total display, donation count, active/revealed status
+- **Admin Panel**: Load fund by ID, request reveal, withdraw, admin role display
+- **Token Manager**: Wrap USDT → cUSDT or unwrap cUSDT → USDT (available on admin page)
+- **Wallet Connect**: wagmi `injected` connector for MetaMask
 
 **Key Technologies:**
-- Next.js 14+ (App Router)
-- React 18+
-- TypeScript
-- FHEVM client libraries
+- Next.js 16 (App Router)
+- React 19 + TypeScript
+- wagmi 2.x + viem 2.x for wallet integration
+- @zama-fhe/relayer-sdk for client-side `createEncryptedInput`
+- Tailwind CSS for styling
+- ethers 6.x for contract interaction
 
-### 2. Middleware Layer
+**Client-Side Donation Flow:**
 
-The Middleware Layer handles account abstraction, identity management, and transaction orchestration.
+```
+User enters USDT amount
+    ↓
+approveUsdt(cUsdtAddress, amount)    — ERC-20 approval
+    ↓
+wrapUsdtToCUsdt(userAddress, amount) — USDT → cUSDT
+    ↓
+fheClient.createEncryptedInput(cUsdtAddress, userAddress)
+    ↓
+input.add64(amount) → input.encrypt()
+    ↓
+Returns { handle: bytes32, inputProof: bytes }
+    ↓
+cUsdt.confidentialTransferAndCall(fundAddress, handle, inputProof, abi.encode(fundId))
+    ↓
+CovalentFund.onConfidentialTransferReceived() — FHE.add() accumulates
+```
 
-**Components:**
+### 2. Token Layer (ERC-7984)
 
-#### Account Abstraction Service
-- Manages abstracted blockchain accounts
-- Bundles transactions for gas efficiency
-- Sponsors gas fees for users
-- Handles payment method integration (credit cards, etc.)
+The Token Layer bridges standard ERC-20 tokens with confidential ERC-7984 tokens.
 
-#### Identity Management Service
-- User authentication (email, federated login)
-- Account mapping (email → abstracted account)
-- Multi-factor authentication (MFA)
-- Role-based access control (RBAC)
+**MockUSDT (ERC-20):**
+- Mintable test token with 6 decimals
+- Simulates real USDT for the demo flow
 
-#### Encryption Helpers
-- FHE client initialization
-- Encryption key management
-- Ciphertext preparation and validation
-
-#### Fund Management Service
-- Fund metadata storage (off-chain)
-- Fund status tracking
-- Recipient information management
-
-**Key Technologies:**
-- ERC-4337 Account Abstraction
-- NextAuth.js for authentication
-- PostgreSQL for metadata storage
+**ConfidentialUSDT (ERC7984ERC20Wrapper):**
+- Wraps MockUSDT into a confidential ERC-7984 token (cUSDT)
+- Inherits from OpenZeppelin `ERC7984ERC20Wrapper` and Zama `ZamaEthereumConfig`
+- `wrap(to, amount)` — locks USDT, mints encrypted cUSDT
+- `unwrap(from, to, amount)` — burns cUSDT, requests FHE decryption
+- `finalizeUnwrap(...)` — after decryption, releases USDT to recipient
+- `confidentialTransferAndCall(...)` — encrypted transfer with callback to fund
 
 ### 3. Protocol Layer
 
-The Protocol Layer consists of smart contracts that process encrypted donations on-chain.
+The Protocol Layer consists of the CovalentFund smart contract.
 
 **Core Contract: CovalentFund**
 
 ```solidity
-contract CovalentFund {
-    // Fund management
-    function createFund(FundConfig memory config) external;
-    function getFund(uint256 fundId) external view returns (Fund memory);
-    
-    // Donation processing
-    function donate(uint256 fundId, euint32 encryptedAmount) external;
-    
-    // Tally operations
-    function getEncryptedTotal(uint256 fundId) external view returns (euint32);
-    
-    // Reveal process
-    function requestReveal(uint256 fundId) external;
-    function revealTotal(uint256 fundId, bytes calldata decryptedTotal) external;
-    
-    // Withdrawals
-    function withdraw(uint256 fundId, address recipient) external;
+contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ownable, ReentrancyGuard {
+
+    function createFund(FundConfig memory config) external returns (uint256 fundId);
+    // FundConfig: (recipient, startTime, endTime) — no strings on-chain
+
+    // IERC7984Receiver — Donation entry point
+    function onConfidentialTransferReceived(
+        address operator,
+        address from,
+        euint64 amount,
+        bytes calldata data    // abi.encode(fundId)
+    ) external returns (ebool);
+
+    // Per-token queries
+    function getEncryptedTotal(uint256 fundId, address token) external view returns (euint64);
+    function getRevealedTotal(uint256 fundId, address token) external view returns (uint256);
+    function isTokenRevealed(uint256 fundId, address token) external view returns (bool);
+    function getFundTokens(uint256 fundId) external view returns (address[] memory);
+
+    // Reveal & withdraw (per-token)
+    function requestReveal(uint256 fundId, address token) external;       // admin only
+    function revealTotal(uint256 fundId, address token, uint256 total) external; // owner/MCP
+    function withdraw(uint256 fundId, address token) external;            // admin, post-reveal
+
+    // Token whitelist (owner only)
+    function whitelistToken(address token) external;
+    function removeWhitelistedToken(address token) external;
+    function isWhitelisted(address token) external view returns (bool);
+
+    // Admin management
+    function addAdmin(uint256 fundId, address admin) external;
+    function removeAdmin(uint256 fundId, address admin) external;  // creator only
+    function isAdmin(uint256 fundId, address account) external view returns (bool);
 }
 ```
 
-**Key Features:**
-- FHE arithmetic operations using `euint32` type
-- Immutable fund configuration once active
-- Duplicate donation prevention
-- Authorization checks for reveal and withdrawal
+**Fund Struct (on-chain essentials only):**
 
-**Security Properties:**
-- All donation amounts stored as FHE ciphertext
-- No plaintext donation data on-chain
-- Deterministic operations
-- Reentrancy protection
+```solidity
+struct Fund {
+    uint256 id;
+    address recipient;
+    address creator;
+    uint256 startTime;
+    uint256 endTime;
+    bool active;
+    uint256 donationCount;
+}
+```
+
+Per-token state is stored in separate mappings:
+- `_encryptedTotals[fundId][token]` — `euint64` encrypted running total
+- `_revealedTotals[fundId][token]` — plaintext revealed total
+- `_tokenRevealed[fundId][token]` — reveal status flag
+- `_fundTokens[fundId]` — list of tokens donated to each fund
+
+Title and description are stored client-side in localStorage only; they are not on-chain.
+
+**Key Properties:**
+- FHE arithmetic on `euint64` type for encrypted donation totals
+- Donations arrive via `onConfidentialTransferReceived` (IERC7984Receiver callback)
+- `FHE.add()` accumulates donations without decryption
+- `FHE.allowThis()` and `FHE.allow()` manage ciphertext access permissions
+- `FHE.allow(accepted, msg.sender)` grants the calling ERC-7984 token access to the returned `ebool`
+- `FHE.allowTransient(encAmount, token)` grants token access during withdrawal
+- Owner-managed token whitelist restricts which ERC-7984 tokens can be used for donations
+- ReentrancyGuard on withdrawal
+- Creator-only admin removal prevents privilege escalation
+
+**Events (privacy-safe):**
+- `DonationReceived` emits `donationIndex`, token, and donor (not the encrypted total) to prevent ciphertext delta correlation
+- `FundCreated`, `RevealRequested`, `TotalRevealed`, `Withdrawal` for full audit trail
+- `TokenWhitelisted`, `TokenRemoved` for whitelist changes
+- `AdminAdded`, `AdminRemoved` for admin management
 
 ### 4. Relayer Layer (MCP)
 
-The Managed Control Process (MCP) handles decryption of aggregated totals.
+The Managed Control Process handles decryption of aggregated totals.
 
-**Responsibilities:**
-- Verify authorization for reveal requests
-- Decrypt aggregated totals (never individual donations)
-- Manage FHE decryption keys securely
-- Return plaintext totals to contracts
+**MVP Implementation:** In the current MVP, the contract owner acts as the MCP by calling `revealTotal(fundId, token, decryptedTotal)` after off-chain decryption. In production, this would be a dedicated service with HSM-backed key management.
 
 **Security Model:**
-- Decryption keys stored in secure, isolated environment
-- Authorization verified on-chain before decryption
-- Audit logging of all decryption operations
-- No access to individual donation data
+- Only aggregated per-token totals can be decrypted (never individual donations)
+- On-chain authorization check (`_revealRequests[fundId][token]` must be true)
+- Only contract owner can call `revealTotal`
+- Reveal request must come from fund admin or creator
+
+### Future: Middleware Layer
+
+The following components are designed but not implemented in the MVP:
+
+- **Account Abstraction (ERC-4337)**: Gas sponsorship, no-wallet UX
+- **Identity Management**: Email auth, federated login via NextAuth.js
+- **Off-Chain Metadata**: PostgreSQL for fund metadata, Redis for caching
 
 ## Data Flow
 
 ### Donation Flow
 
-1. **Donor enters donation amount** (plaintext in browser)
-2. **Client-side encryption** → FHE ciphertext created
-3. **Transaction bundling** → Account abstraction bundles tx
-4. **On-chain storage** → Encrypted donation stored
-5. **Tally update** → FHE addition operation updates total
-6. **Confirmation** → Donor receives confirmation receipt
+1. Donor enters USDT amount in browser (plaintext).
+2. Frontend calls `approveUsdt(cUsdtAddress, amount)` on the ERC-20 token.
+3. Frontend calls `wrapUsdtToCUsdt(userAddress, amount)` — USDT locked, cUSDT minted.
+4. `createEncryptedInput(cUsdtAddress, userAddress).add64(amount).encrypt()` produces `{ handle, inputProof }`.
+5. Frontend calls `cUsdt.confidentialTransferAndCall(fundAddress, handle, inputProof, abi.encode(fundId))`.
+6. cUSDT contract transfers encrypted tokens and calls `CovalentFund.onConfidentialTransferReceived()`.
+7. Contract validates fund status, token whitelist, and time bounds.
+8. Contract calls `FHE.add(encryptedTotals[fundId][token], amount)` — ciphertext arithmetic.
+9. Contract calls `FHE.allowThis()` + `FHE.allow()` for access control.
+10. Contract returns `FHE.asEbool(true)` with `FHE.allow(accepted, msg.sender)` to accept the transfer.
+11. `DonationReceived` event emitted with donation index (not ciphertext).
 
 ### Reveal Flow
 
-1. **Admin requests reveal** → Authorization checked on-chain
-2. **Encrypted total retrieved** → Ciphertext sent to MCP
-3. **MCP verifies authorization** → Checks on-chain proof
-4. **MCP decrypts total** → Only aggregated total decrypted
-5. **Plaintext returned** → Total stored on-chain (optional)
-6. **Admin views total** → Displayed in admin panel
+1. Admin calls `requestReveal(fundId, token)` — on-chain authorization check.
+2. MCP/owner reads encrypted total off-chain.
+3. MCP decrypts the aggregated total (only the total, never individual values).
+4. MCP calls `revealTotal(fundId, token, decryptedTotal)` — stored on-chain.
+5. Frontend reads `getRevealedTotal(fundId, token)` and `isTokenRevealed(fundId, token)`.
 
 ### Withdrawal Flow
 
-1. **Admin requests withdrawal** → Fund closure/admin approval checked
-2. **Total verified** → Decrypted total matched to withdrawal amount
-3. **Recipient verified** → Address matches fund configuration
-4. **Transfer executed** → Funds sent to recipient
-5. **Confirmation** → Transaction receipt generated
-
-## Security Architecture
-
-### Encryption Boundary
-
-- **Inside**: Plaintext donation amounts exist only client-side
-- **Outside**: All on-chain data is encrypted (FHE ciphertext)
-
-### Decryption Boundary
-
-- **Inside**: MCP Relayer (decryption keys)
-- **Outside**: All other components see only ciphertext
-
-### Privacy Boundary
-
-- **Inside**: Donor identity metadata (off-chain only)
-- **Outside**: On-chain data contains no donor identity
+1. Fund must be revealed (per-token) and past its `endTime` (or inactive).
+2. Admin calls `withdraw(fundId, token)`.
+3. Contract creates encrypted amount via `FHE.asEuint64(revealedTotal)`.
+4. Contract grants token access: `FHE.allowTransient(encAmount, token)`.
+5. Contract calls `IERC7984(token).confidentialTransfer(recipient, encAmount)`.
+6. Recipient can then `unwrap()` cUSDT → USDT on the ConfidentialUSDT contract.
+7. If all tokens withdrawn, fund is marked inactive.
 
 ## Technology Stack
 
 ### Smart Contracts
-- **Language**: Solidity 0.8.20+
-- **FHE Library**: @fhevm/solidity
-- **Framework**: Hardhat
-- **Testing**: Mocha, Chai, Hardhat Network
+- **Language**: Solidity 0.8.27
+- **FHE Library**: @fhevm/solidity ^0.10.0
+- **Confidential Tokens**: @openzeppelin/confidential-contracts ^0.3.1 (ERC-7984)
+- **Access Control**: OpenZeppelin Ownable + ReentrancyGuard
+- **Framework**: Hardhat + @fhevm/hardhat-plugin ^0.4.0
+- **Testing**: Mocha, Chai, FHEVM mock environment (44 passing tests)
+- **Deploy**: hardhat-deploy with tagged scripts, dotenv for config
 
 ### Frontend
-- **Framework**: Next.js 14+
+- **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
-- **UI Library**: React 18+
+- **Wallet**: wagmi 2.x + viem 2.x
+- **Contract**: ethers 6.x
+- **FHE Client**: @zama-fhe/relayer-sdk ^0.4.0
 - **Styling**: Tailwind CSS
-- **FHE Client**: @fhevm/js
-
-### Backend/Middleware
-- **Runtime**: Node.js 20+
-- **Database**: PostgreSQL 15+
-- **Cache**: Redis (optional)
-- **Auth**: NextAuth.js
 
 ### Infrastructure
-- **Blockchain**: Ethereum Sepolia (testnet), Mainnet (production)
-- **FHE Network**: FHEVM on Sepolia
-- **Deployment**: Docker, Docker Compose
-- **CI/CD**: GitHub Actions
+- **Local Dev**: Hardhat node with FHEVM mock
+- **Testnet**: Ethereum Sepolia with FHEVM relayer
+- **Deployment**: dotenv + private key (DEPLOYER_PRIVATE_KEY)
 
 ## Design Decisions
 
-### Why FHE?
+### Why euint64?
 
-FHE enables computation on encrypted data without decryption, ensuring:
-- Individual donations remain private forever
-- Aggregated totals can be computed on-chain
-- Verifiable without revealing inputs
+The `euint64` type provides a range up to ~18.4 quintillion, which comfortably accommodates real-world token amounts including those with 6 decimals (like USDT). The OpenZeppelin ERC-7984 standard uses `euint64` as its native encrypted balance type, making it the natural choice for the donation totals.
 
-### Why Account Abstraction?
+### Why ERC-7984 (Confidential Tokens)?
 
-Account abstraction enables:
-- No wallet management for users
-- Gas fee sponsorship
-- Multiple payment methods
-- Better user experience
+ERC-7984 is OpenZeppelin's standard for confidential fungible tokens built on FHEVM. Using `ERC7984ERC20Wrapper` allows wrapping any ERC-20 into a confidential token, enabling a clean separation between the standard token (USDT) and its encrypted counterpart (cUSDT). The `confidentialTransferAndCall` pattern provides an elegant donation mechanism via the `IERC7984Receiver` callback.
 
-### Why Four Layers?
+### Why IERC7984Receiver instead of a direct donate() function?
 
-Separation of concerns:
-- **Application**: User experience
-- **Middleware**: Business logic and orchestration
-- **Protocol**: On-chain security and verification
-- **Relayer**: Controlled decryption
+Implementing `IERC7984Receiver.onConfidentialTransferReceived` means donations flow through the standard ERC-7984 transfer mechanism. This:
+- Leverages OpenZeppelin's battle-tested transfer logic
+- Supports any whitelisted ERC-7984 token (multi-token)
+- Ensures encrypted balances are properly tracked by the token contract
+- Enables the refund pattern if the callback rejects the donation
 
-## Scalability Considerations
+### Why FHE.allow(accepted, msg.sender) in the callback?
 
-### On-Chain
-- Gas optimization for FHE operations
-- Batch processing where possible
-- Efficient storage patterns
+The ERC-7984 `_transferAndCall` function uses `FHE.select(success, ...)` after the callback to handle refunds. This requires the calling cUSDT contract to have ACL access to the returned `ebool`. Without this `allow()`, the transaction reverts with `ACLNotAllowed()`.
 
-### Off-Chain
-- Database indexing for fund queries
-- Caching of frequently accessed data
-- CDN for static assets
+### Why FHE.allowTransient for withdrawal?
 
-### Future Enhancements
-- Layer 2 solutions for lower gas costs
-- Optimistic reveals with dispute resolution
-- Multi-chain support
+During `withdraw()`, the contract creates an encrypted amount and calls `confidentialTransfer` on the token contract. The token contract needs temporary access to the encrypted handle for the transfer's internal FHE operations. `allowTransient` grants single-transaction access without persistent storage.
 
-## Deployment Architecture
+### Why creator-only admin removal?
 
-### Development
-- Local Hardhat node
-- Local PostgreSQL database
-- Mock MCP for testing
+Allowing any admin to remove any other admin creates a privilege escalation vector. Restricting removal to the creator ensures a stable trust hierarchy.
 
-### Staging
-- Sepolia testnet
-- Managed PostgreSQL instance
-- Test MCP endpoint
+### Why no strings on-chain?
 
-### Production
-- Ethereum mainnet
-- High-availability database
-- Production MCP with key management
+Strings (title, description) are expensive to store on-chain and are mutable metadata that does not affect fund logic. Storing them client-side in localStorage reduces gas costs and keeps the contract minimal.
 
-## Monitoring & Observability
+## Future Enhancements
 
-### Metrics
-- Transaction success rates
-- Gas usage per operation
-- Donation volume (encrypted)
-- Reveal request frequency
-
-### Logging
-- Application logs (no sensitive data)
-- Contract events
-- MCP operation logs
-- Error tracking
-
-### Alerts
-- Failed transactions
-- Unusual reveal patterns
-- System health issues
-- Security events
-
-## Future Architecture Enhancements
-
-1. **Multi-chain Support**: Deploy on multiple chains
-2. **Layer 2 Integration**: Optimistic or ZK rollups
-3. **Recurring Donations**: Scheduled encrypted donations
-4. **Multi-recipient Funds**: Split withdrawals
-5. **Analytics Dashboard**: Encrypted analytics
-6. **Mobile SDK**: Native mobile integration
+1. **Account Abstraction (ERC-4337)**: Gasless UX for non-crypto donors
+2. **Multi-chain Support**: Deploy on multiple EVM chains with FHEVM
+3. **Additional Token Wrappers**: cDAI, cUSDC via the same ERC7984ERC20Wrapper pattern
+4. **Recurring Donations**: Scheduled encrypted contributions
+5. **Multi-recipient Funds**: Split withdrawals across recipients
+6. **Encrypted Analytics**: Privacy-preserving fund metrics
+7. **Decentralized MCP**: Multi-party computation for key management
 
 ---
 

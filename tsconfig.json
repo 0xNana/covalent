@@ -3,31 +3,17 @@
     "target": "ES2020",
     "module": "commonjs",
     "lib": ["ES2020"],
-    "declaration": true,
-    "outDir": "./dist",
-    "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
-    "types": ["node", "mocha", "chai"],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./*"]
-    }
+    "moduleResolution": "node"
   },
-  "include": [
-    "./scripts/**/*",
-    "./contracts/**/*",
-    "./test/**/*"
+  "references": [
+    { "path": "./fhevm-hardhat-template" },
+    { "path": "./frontend" }
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "artifacts",
-    "cache",
-    "coverage"
-  ]
+  "include": [],
+  "exclude": ["node_modules"]
 }

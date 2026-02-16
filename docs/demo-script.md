@@ -2,297 +2,282 @@
 
 ## Overview
 
-This script provides a step-by-step guide for demonstrating the Covalent confidential donation platform. The demo showcases key features: fund creation, encrypted donations, and secure reveal of aggregated totals.
+This script provides a step-by-step guide for demonstrating the Covalent confidential donation platform. The demo showcases the complete lifecycle: fund creation, encrypted donations with FHE, and secure reveal of aggregated totals.
 
-**Duration**: ~2 minutes  
-**Audience**: Grant reviewers, developers, potential partners
+**Duration**: ~2 minutes
+**Audience**: Zama Developer Program judges, developers, potential partners
 
 ## Pre-Demo Setup
 
 ### Prerequisites
 
-1. **Deployed Contracts**
+1. **Compiled and Tested Contracts**
    ```bash
-   npm run deploy:sepolia
+   cd fhevm-hardhat-template
+   npm install
+   npx hardhat compile
+   npx hardhat test        # 44 passing
    ```
 
-2. **Frontend Running**
+2. **Local Node Running**
+   ```bash
+   cd fhevm-hardhat-template
+   npx hardhat node --network hardhat --no-deploy
+   ```
+
+3. **Contract Deployed**
+   ```bash
+   cd fhevm-hardhat-template
+   npx hardhat deploy --network localhost --tags CovalentFund
+   # Deploys 3 contracts: MockUSDT, ConfidentialUSDT (cUSDT), CovalentFund
+   # Note the deployed addresses
+   ```
+
+4. **Frontend Running**
    ```bash
    cd frontend
+   # Set in .env: NEXT_PUBLIC_CONTRACT_ADDRESS, NEXT_PUBLIC_CUSDT_ADDRESS, NEXT_PUBLIC_USDT_ADDRESS
+   npm install
    npm run dev
    ```
 
-3. **Test Accounts**
-   - Organization admin account
-   - Donor account (optional, can use same)
-   - Test funds created
+5. **MetaMask Configured**
+   - Network: `localhost:8545` (Chain ID 31337)
+   - Import a Hardhat test account private key
+   - Ensure test ETH available
 
-4. **Environment**
-   - Sepolia testnet access
-   - FHEVM relayer configured
-   - Test ETH for gas
+### Environment Checklist
+
+- [ ] Hardhat node running
+- [ ] MockUSDT, ConfidentialUSDT (cUSDT), CovalentFund deployed to localhost
+- [ ] Frontend at http://localhost:3000
+- [ ] MetaMask connected to localhost
+- [ ] Screen recording software ready
+- [ ] Demo script reviewed
+
+---
 
 ## Demo Flow
 
-### Part 1: Introduction (0:00 - 0:15)
+### Part 1: Introduction (0:00 – 0:15)
 
-**Narrator**: "Welcome to Covalent, a confidential donation platform that enables verifiable fundraising without revealing donor identities or donation amounts."
+**Narrator**: "Welcome to Covalent — a confidential donation platform that enables verifiable fundraising without revealing donor identities or donation amounts. Covalent is built on Zama's FHEVM, using Fully Homomorphic Encryption to process encrypted donations entirely on-chain."
 
 **Show**:
-- Landing page
-- Key features highlighted
-- Architecture diagram (optional)
+- Landing page with hero section
+- Scroll to "How It Works" section
+- Quick glance at the technology badges (FHE, Zama, Solidity)
 
 **Key Points**:
-- Privacy-preserving donations
-- FHE encryption
-- Account abstraction
-- No wallet management required
+- Privacy-preserving donations using FHE
+- Donations encrypted client-side, aggregated on-chain
+- Only totals can be revealed — individual amounts stay private forever
 
 ---
 
-### Part 2: Organization Registration (0:15 - 0:30)
+### Part 2: Fund Creation (0:15 – 0:35)
 
-**Narrator**: "Let's start by creating an organization account. Organizations can create and manage donation funds."
-
-**Actions**:
-1. Navigate to "Create Organization"
-2. Enter organization details:
-   - Name: "Investigative Journalism Fund"
-   - Email: demo@example.com
-3. Complete registration
-4. Show admin dashboard
-
-**Highlight**:
-- No private keys required
-- Email-based authentication
-- Role-based access control
-
----
-
-### Part 3: Fund Creation (0:30 - 0:50)
-
-**Narrator**: "Now let's create a donation fund. Funds are immutable once active, ensuring transparency and trust."
+**Narrator**: "Let's create a donation fund. Any connected wallet can create a fund with a title, description, recipient, and duration. Note: title and description are stored locally in the browser; only the recipient address and time window go on-chain."
 
 **Actions**:
-1. Click "Create Fund"
-2. Fill fund details:
+1. Click "Create Fund" in the navigation bar
+2. Fill in:
    - Title: "Support Independent Journalism"
-   - Description: "Help fund investigative reporting"
-   - Recipient: 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb
-   - Start Date: Today
-   - End Date: 30 days from now
-3. Submit fund creation
-4. Show fund page with encrypted total (0)
+   - Description: "Fund investigative reporting with complete donor privacy"
+   - Recipient: `0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb` (or a test address)
+   - Duration: 30 days
+3. Click "Create Fund"
+4. Wait for transaction confirmation
+5. Navigate to the new fund page — show:
+   - Fund details (title, description from localStorage; recipient from chain)
+   - Encrypted total: displayed as ciphertext handle
+   - Donation count: 0
+   - Status: Active
 
 **Highlight**:
-- Fund configuration stored on-chain
-- Encrypted total initialized
-- Fund status: Active
+- Only recipient, startTime, endTime are stored on-chain; title/description are client-side metadata in localStorage
+- Encrypted totals (per-fund per-token) initialized to `FHE.asEuint64(0)` — even the initial zero is encrypted
+- Fund is immutable once active
 
 ---
 
-### Part 4: Making a Donation (0:50 - 1:20)
+### Part 3: Making a Donation (0:35 – 1:05)
 
-**Narrator**: "Now let's make a donation. The donation amount is encrypted client-side before it ever leaves the browser."
+**Narrator**: "Now let's donate. The key innovation: we first approve USDT and wrap it to cUSDT via the Token Manager, then encrypt the amount in the browser using `@zama-fhe/relayer-sdk` before calling `confidentialTransferAndCall`."
 
 **Actions**:
-1. Navigate to fund page
-2. Click "Donate"
-3. Enter donation amount: 100 (or any amount)
-4. Show encryption process (if visible in UI)
-5. Submit donation
-6. Show confirmation
+1. Navigate to Donate page
+2. Enter Fund ID
+3. Enter donation amount: **100**
+4. Approve USDT (if not already approved)
+5. Wrap USDT to cUSDT via Token Manager (if needed)
+6. Click "Donate"
+7. Observe:
+   - Loading state: "Encrypting your donation..."
+   - Transaction submitted (cUsdt.confidentialTransferAndCall)
+   - Success confirmation
+8. Navigate to fund page — show:
+   - Donation count: 1
+   - Encrypted total: updated ciphertext (different handle)
+   - No amount visible anywhere — just the encrypted handle
 
 **Highlight**:
-- Client-side encryption
-- No plaintext on-chain
-- Gas sponsored (no user gas fees)
-- Transaction confirmation
+- Token flow: approve USDT → wrap to cUSDT → encrypt via `createEncryptedInput` (relayer-sdk)
+- On-chain: `cUsdt.confidentialTransferAndCall(fundAddress, handle, proof, abi.encode(fundId))`
+- Contract receives via `onConfidentialTransferReceived` callback (no direct `donate()`)
+- `FHE.add64()` accumulates the donation into the encrypted running total
+- The plaintext "100" never appears on-chain or in transaction data
+
+---
+
+### Part 4: Multiple Donations (1:05 – 1:25)
+
+**Narrator**: "Let's add more donations to demonstrate FHE arithmetic accumulation."
+
+**Actions**:
+1. Make second donation: **50**
+2. Make third donation: **75**
+3. Navigate to fund page — show:
+   - Donation count: 3
+   - Encrypted total: still encrypted (different handle after each add)
+   - No individual amounts visible
+
+**Highlight**:
+- Three `FHE.add64()` operations performed on-chain
+- Total is 100 + 50 + 75 = 225, but this is completely hidden in the ciphertext
+- Individual donations can never be extracted — only the aggregate can be revealed
+
+---
+
+### Part 5: Reveal Process (1:25 – 1:50)
+
+**Narrator**: "As an administrator, I can now reveal the aggregated total. The Managed Control Process verifies I'm authorized, then decrypts only the total — never individual donations."
+
+**Actions**:
+1. Navigate to Admin panel
+2. Enter the Fund ID and select token (e.g. cUSDT)
+3. Verify admin status is shown
+4. Click "Request Reveal"
+5. Wait for transaction
+6. Click "Reveal Total" (MCP/owner submits the decrypted value)
+7. Show the revealed total: **225** (100 + 50 + 75)
+
+**Highlight**:
+- Two-step process: `requestReveal(fundId, token)` then `revealTotal(fundId, token, total)`
+- Authorization is checked on-chain (`requestReveal` requires admin role)
+- Only the aggregated total (225) is revealed per fund per token
+- Individual donations (100, 50, 75) remain encrypted permanently
+- `DonationReceived` events include token address and sequential index, not the ciphertext
 
 **Technical Details** (if asked):
-- FHE encryption using FHEVM
-- Encrypted value stored as `euint32`
-- Transaction bundled via account abstraction
+- Contract stores no strings on-chain; fund config is (recipient, startTime, endTime) only
+- Contract stores `euint64` encrypted totals per fund per token — FHE ciphertext
+- `requestReveal(fundId, token)` sets an on-chain flag authorizing decryption
+- `revealTotal(fundId, token, total)` can only be called by the contract owner (MCP)
+- The MCP decrypts off-chain (via `@zama-fhe/relayer-sdk`) and submits the plaintext result
 
 ---
 
-### Part 5: Multiple Donations (1:20 - 1:35)
+### Part 6: Closing (1:50 – 2:00)
 
-**Narrator**: "Let's add more donations to show how the encrypted total accumulates."
+**Narrator**: "Covalent demonstrates that Fully Homomorphic Encryption isn't just theoretical — it enables real-world privacy-preserving applications today. Donors stay private. Totals stay verifiable. Built on Zama FHEVM and ERC-7984 confidential tokens."
 
-**Actions**:
-1. Make second donation: 50
-2. Make third donation: 75
-3. Show encrypted total (still encrypted)
-4. Explain that individual donations are never visible
-
-**Highlight**:
-- Multiple encrypted donations
-- FHE addition operations
-- Total remains encrypted
-- Individual amounts private
-
----
-
-### Part 6: Reveal Process (1:35 - 2:00)
-
-**Narrator**: "As an administrator, I can request to reveal the aggregated total. The Managed Control Process verifies authorization and decrypts only the total, never individual donations."
-
-**Actions**:
-1. Navigate to admin panel
-2. Click "Reveal Total" for the fund
-3. Show authorization check
-4. Show MCP decryption process
-5. Display revealed total: 225 (100 + 50 + 75)
-
-**Highlight**:
-- Authorization required
-- Only aggregated total decrypted
-- Individual donations remain private
-- MCP verification process
-
-**Technical Details** (if asked):
-- On-chain authorization check
-- MCP verifies admin permission
-- Decryption of aggregated total only
-- Result stored/displayed
-
----
-
-### Part 7: Withdrawal (Optional, if time)
-
-**Narrator**: "Finally, funds can be withdrawn to the designated recipient address."
-
-**Actions**:
-1. Show withdrawal option
-2. Verify recipient address matches fund config
-3. Execute withdrawal
-4. Show transaction confirmation
-
-**Highlight**:
-- Recipient verification
-- Amount matches revealed total
-- Secure transfer
+**Show**:
+- Fund page with revealed total
+- Quick flash of test results (44 passing)
+- Token Manager (wrap/unwrap) if shown
+- Landing page closing shot
 
 ---
 
 ## Key Talking Points
 
 ### Privacy Guarantees
-
-- **Individual Donations**: Never decrypted, never visible
+- **Individual Donations**: Never decrypted, never visible, even to admins
 - **Donor Identity**: Not stored on-chain
-- **Encrypted-by-Default**: All amounts encrypted client-side
+- **Encrypted-by-Default**: All amounts encrypted client-side before submission
+- **Event Safety**: Events emit donation index, not ciphertext handles
 
-### Security Features
+### Technical Strengths
+- **ERC-7984 Confidential Tokens**: Uses cUSDT (ConfidentialUSDT wrapping MockUSDT) for real token transfers
+- **Comprehensive Tests**: 44 passing tests including full FHE lifecycle and ERC-7984 flow
+- **Access Control**: `FHE.allowThis()` + `FHE.allow()` pattern for ciphertext permissions
+- **Security**: ReentrancyGuard, creator-only admin removal; withdrawal via `confidentialTransfer` with `FHE.allowTransient`
 
-- **FHE Cryptography**: Industry-standard encryption
-- **Authorization**: Role-based access control
-- **Immutable Funds**: Configuration cannot be changed
-- **Audit Trail**: All operations logged
-
-### User Experience
-
-- **No Wallet Management**: Account abstraction handles it
-- **No Gas Fees**: Platform sponsors transactions
-- **Simple Interface**: Non-crypto-native friendly
-- **Mobile Ready**: Responsive design
+### Real-World Use Cases
+- Investigative journalism funding (protect sources)
+- Labor union strike funds (prevent employer retaliation)
+- Whistleblower support (complete anonymity)
+- Activist fundraising (protect donor identity in hostile regimes)
 
 ## Technical Deep Dive (If Requested)
 
 ### Encryption Flow
 
 ```
-Plaintext Amount (Browser)
+User approves USDT → wrap to cUSDT (Token Manager)
     ↓
-FHE Encryption (Client-Side)
+User enters amount (integer, e.g. 100)
     ↓
-Encrypted Ciphertext (euint32)
+createEncryptedInput(contractAddr, userAddr) — @zama-fhe/relayer-sdk
     ↓
-On-Chain Storage
+input.add64(100) → input.encrypt()
     ↓
-FHE Addition Operation
+Returns { handles[0]: bytes32, inputProof: bytes }
     ↓
-Encrypted Total
+cUsdt.confidentialTransferAndCall(fundAddress, handle, proof, abi.encode(fundId))
+    ↓
+ERC-7984 invokes onConfidentialTransferReceived() with encrypted amount
+    ↓
+FHE.add64(encryptedTotal, amount) → new euint64
+    ↓
+FHE.allowThis(newTotal) + FHE.allow(newTotal, donor)
 ```
 
 ### Reveal Flow
 
 ```
-Admin Request
+Admin calls requestReveal(fundId, token)
     ↓
-Authorization Check (On-Chain)
+Contract sets _revealRequests[fundId][token] = true
     ↓
-Encrypted Total → MCP
+MCP reads encrypted total off-chain (per fund per token)
     ↓
-MCP Verification
+MCP decrypts (aggregated total only)
     ↓
-Decryption (Aggregated Only)
+MCP calls revealTotal(fundId, token, 225)
     ↓
-Plaintext Total Returned
+_revealedTotals[fundId][token] = 225, _revealed[fundId][token] = true
 ```
 
 ## Common Questions & Answers
 
 ### Q: Can individual donations be decrypted?
 
-**A**: No. The system is designed so that only aggregated totals can be decrypted. Individual donations remain encrypted forever.
+**A**: No. The contract stores only the running `euint64` total per fund per token. Each donation is added via `FHE.add64()` and the individual ciphertext is not stored separately. Even with the decryption key, only the aggregate total can be recovered.
 
-### Q: What if the MCP is compromised?
+### Q: What prevents someone from brute-forcing individual amounts?
 
-**A**: Even if MCP keys are compromised, only aggregated totals can be decrypted, not individual donations. The system architecture prevents individual decryption.
+**A**: FHE ciphertexts are semantically secure — identical plaintext values produce different ciphertexts. There is no way to correlate an input ciphertext to a known amount without the decryption key, and the key can only decrypt the aggregated total handle.
 
-### Q: How do you prevent double-spending?
+### Q: What about the `euint64` limitation?
 
-**A**: The smart contract tracks transactions and prevents duplicate donations in a single transaction context using nonces and transaction hashes.
+**A**: `euint64` supports values up to ~18 quintillion, which is sufficient for production donation amounts. The architecture uses ERC-7984 confidential token wrapping (cUSDT) so token transfers and encrypted arithmetic integrate cleanly.
 
-### Q: What happens if encryption fails?
+### Q: Why not use account abstraction in the demo?
 
-**A**: The frontend degrades gracefully, showing an error message and preventing submission until encryption succeeds.
+**A**: Account abstraction (ERC-4337) adds complexity that would distract from the core FHE innovation. The smart contract and encryption patterns are the same regardless of how the transaction is submitted. Account abstraction is designed for production to enable gasless, no-wallet UX.
 
-### Q: Can funds be modified after creation?
+### Q: How does this compare to zero-knowledge proofs?
 
-**A**: No. Funds are immutable once active, ensuring transparency and preventing manipulation.
+**A**: ZKPs prove a statement without revealing the witness. FHE allows computation on encrypted data. With ZKPs, you would prove "I donated a valid amount" but couldn't accumulate a running encrypted total on-chain. FHE enables the smart contract to do arithmetic (addition) on values it can never see. Withdrawal transfers cUSDT to the recipient via `confidentialTransfer`; the recipient can unwrap back to USDT via the Token Manager.
 
-## Demo Checklist
+### Q: Where does `createEncryptedInput` come from?
 
-- [ ] Contracts deployed to Sepolia
-- [ ] Frontend running and accessible
-- [ ] Test accounts funded with ETH
-- [ ] Test fund created
-- [ ] Browser ready (clear cache if needed)
-- [ ] Screen recording software ready
-- [ ] Demo script reviewed
-- [ ] Backup plan if network issues
-
-## Post-Demo
-
-### Follow-Up Materials
-
-1. **Documentation**
-   - Architecture documentation
-   - Threat model
-   - Zama integration guide
-
-2. **Code Repository**
-   - Open-source codebase
-   - Test coverage
-   - Deployment scripts
-
-3. **Video Recording**
-   - Upload demo video
-   - Share with reviewers
-
-### Next Steps
-
-1. Address questions
-2. Schedule technical deep dive if needed
-3. Provide access to testnet deployment
-4. Share repository link
+**A**: `createEncryptedInput` is provided by `@zama-fhe/relayer-sdk`, not `@fhevm/js`. The relayer SDK handles client-side encryption for the ERC-7984 flow.
 
 ---
 
-**Demo Duration**: ~2 minutes  
-**Recording**: Save as `video/builder-track-demo.mp4`  
+**Demo Duration**: ~2 minutes
+**Recording**: Save as `video/builder-track-demo.mp4`
 **Last Updated**: 2026-02-16

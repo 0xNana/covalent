@@ -1,18 +1,52 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {FHE, euint32, externalEuint32} from "@fhevm/solidity/lib/FHE.sol";
+import {FHE, euint64, ebool} from "@fhevm/solidity/lib/FHE.sol";
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC7984} from "@openzeppelin/confidential-contracts/interfaces/IERC7984.sol";
+import {IERC7984Receiver} from "@openzeppelin/confidential-contracts/interfaces/IERC7984Receiver.sol";
 import "./interfaces/ICovalentFund.sol";
 
 /// @title CovalentFund
-/// @notice Confidential donation platform using Fully Homomorphic Encryption
-/// @dev Donors donate encrypted amounts using external encrypted values with proofs.
-/// All donation amounts are encrypted and processed without decryption.
-/// Follows the same FHE pattern as FHECounter (euint32 + externalEuint32 + inputProof).
-contract CovalentFund is ICovalentFund, ZamaEthereumConfig, Ownable, ReentrancyGuard {
+/// @notice Confidential donation platform using ERC-7984 wrapped tokens and FHE.
+/// @dev Donations arrive via `confidentialTransferAndCall` on an ERC-7984 token.
+///      The contract implements IERC7984Receiver to accept these transfers.
+///      Multi-token: each fund tracks per-token encrypted totals independently.
+///      Metadata (title, description) lives client-side keyed by fundId.
+contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ownable, ReentrancyGuard {
+    // -------------------------------------------------------------------------
+    // Custom errors
+    // -------------------------------------------------------------------------
+    error InvalidRecipient();
+    error InvalidTimeRange();
+    error StartTimeInPast();
+    error FundDoesNotExist();
+    error FundNotActive();
+    error FundNotStarted();
+    error FundEnded();
+    error NotAuthorized();
+    error AlreadyRevealed();
+    error RevealNotRequested();
+    error OnlyOwnerCanReveal();
+    error TotalMustBeRevealed();
+    error FundStillActive();
+    error NoFundsToWithdraw();
+    error CannotRemoveCreator();
+    error InvalidAdminAddress();
+    error AlreadyAdmin();
+    error NotAnAdmin();
+    error TokenNotWhitelisted();
+    error TokenAlreadyWhitelisted();
+    error InvalidToken();
+    error InvalidFundId();
+    error NoDirectETH();
+
+    // -------------------------------------------------------------------------
+    // State
+    // -------------------------------------------------------------------------
+
     /// @notice Counter for fund IDs
     uint256 private _fundCounter;
 
@@ -22,220 +56,290 @@ contract CovalentFund is ICovalentFund, ZamaEthereumConfig, Ownable, ReentrancyG
     /// @notice Mapping from fund ID to admin addresses
     mapping(uint256 => mapping(address => bool)) private _admins;
 
-    /// @notice Mapping to track reveal requests
-    mapping(uint256 => bool) private _revealRequests;
+    /// @notice Per-fund per-token encrypted totals
+    mapping(uint256 => mapping(address => euint64)) private _encryptedTotals;
 
-    /// @notice Mapping to prevent duplicate donations in same block
-    mapping(uint256 => mapping(address => uint256)) private _lastDonationBlock;
+    /// @notice Per-fund per-token revealed totals
+    mapping(uint256 => mapping(address => uint256)) private _revealedTotals;
+
+    /// @notice Per-fund per-token revealed status
+    mapping(uint256 => mapping(address => bool)) private _tokenRevealed;
+
+    /// @notice Per-fund per-token reveal request status
+    mapping(uint256 => mapping(address => bool)) private _revealRequests;
+
+    /// @notice List of tokens that have been donated to each fund
+    mapping(uint256 => address[]) private _fundTokens;
+
+    /// @notice Tracks whether a token was already added to _fundTokens for a fund
+    mapping(uint256 => mapping(address => bool)) private _fundTokenExists;
+
+    /// @notice Whitelisted ERC-7984 tokens accepted for donations
+    mapping(address => bool) private _whitelistedTokens;
+
+    // -------------------------------------------------------------------------
+    // Constructor
+    // -------------------------------------------------------------------------
 
     /**
-     * @notice Constructor
-     * @param initialOwner The initial owner of the contract
+     * @param initialOwner The initial owner of the contract (can reveal totals)
      */
     constructor(address initialOwner) Ownable(initialOwner) {}
 
-    /**
-     * @notice Create a new donation fund
-     * @param config Fund configuration
-     * @return fundId The ID of the created fund
-     */
+    // =========================================================================
+    //  Fund lifecycle
+    // =========================================================================
+
+    /// @inheritdoc ICovalentFund
     function createFund(FundConfig memory config) external override returns (uint256 fundId) {
-        require(bytes(config.title).length > 0, "CovalentFund: Title required");
-        require(config.recipient != address(0), "CovalentFund: Invalid recipient");
-        require(config.endTime > config.startTime, "CovalentFund: Invalid time range");
-        require(config.startTime >= block.timestamp, "CovalentFund: Start time must be in future");
+        if (config.recipient == address(0)) revert InvalidRecipient();
+        if (config.endTime <= config.startTime) revert InvalidTimeRange();
+        if (config.startTime < block.timestamp) revert StartTimeInPast();
 
         fundId = ++_fundCounter;
 
-        euint32 initialTotal = FHE.asEuint32(0);
-        FHE.allowThis(initialTotal);
-
         _funds[fundId] = Fund({
             id: fundId,
-            title: config.title,
-            description: config.description,
             recipient: config.recipient,
             creator: msg.sender,
             startTime: config.startTime,
             endTime: config.endTime,
             active: true,
-            encryptedTotal: initialTotal,
-            donationCount: 0,
-            revealedTotal: 0,
-            revealed: false
+            donationCount: 0
         });
 
         _admins[fundId][msg.sender] = true;
 
-        emit FundCreated(
-            fundId,
-            msg.sender,
-            config.title,
-            config.recipient,
-            config.startTime,
-            config.endTime
-        );
+        emit FundCreated(fundId, msg.sender, config.recipient, config.startTime, config.endTime);
     }
 
-    /**
-     * @notice Get fund information
-     * @param fundId The ID of the fund
-     * @return fund Fund information
-     */
+    /// @inheritdoc ICovalentFund
     function getFund(uint256 fundId) external view override returns (Fund memory fund) {
         fund = _funds[fundId];
-        require(fund.id != 0, "CovalentFund: Fund does not exist");
+        if (fund.id == 0) revert FundDoesNotExist();
     }
 
-    /**
-     * @notice Get the encrypted total for a fund
-     * @param fundId The ID of the fund
-     * @return encryptedTotal The encrypted total donation amount
-     */
-    function getEncryptedTotal(uint256 fundId) external view override returns (euint32 encryptedTotal) {
-        Fund storage fund = _funds[fundId];
-        require(fund.id != 0, "CovalentFund: Fund does not exist");
-        return fund.encryptedTotal;
+    // =========================================================================
+    //  Per-token queries
+    // =========================================================================
+
+    /// @inheritdoc ICovalentFund
+    function getEncryptedTotal(uint256 fundId, address token) external view override returns (euint64) {
+        if (_funds[fundId].id == 0) revert FundDoesNotExist();
+        return _encryptedTotals[fundId][token];
     }
 
+    /// @inheritdoc ICovalentFund
+    function getRevealedTotal(uint256 fundId, address token) external view override returns (uint256) {
+        if (_funds[fundId].id == 0) revert FundDoesNotExist();
+        return _revealedTotals[fundId][token];
+    }
+
+    /// @inheritdoc ICovalentFund
+    function isTokenRevealed(uint256 fundId, address token) external view override returns (bool) {
+        if (_funds[fundId].id == 0) revert FundDoesNotExist();
+        return _tokenRevealed[fundId][token];
+    }
+
+    /// @inheritdoc ICovalentFund
+    function getFundTokens(uint256 fundId) external view override returns (address[] memory) {
+        if (_funds[fundId].id == 0) revert FundDoesNotExist();
+        return _fundTokens[fundId];
+    }
+
+    // =========================================================================
+    //  IERC7984Receiver — Donation entry point
+    // =========================================================================
+
     /**
-     * @notice Make a donation to a fund using encrypted amount
-     * @param fundId The ID of the fund
-     * @param encryptedAmount The encrypted donation amount (external euint32)
-     * @param inputProof The input proof for the encrypted amount
-     * @dev Follows the FHECounter pattern: externalEuint32 + inputProof -> FHE.fromExternal -> FHE.add
+     * @notice Callback when an ERC-7984 token is transferred via `confidentialTransferAndCall`.
+     * @param from The donor address
+     * @param amount The encrypted donation amount (euint64)
+     * @param data ABI-encoded fundId: `abi.encode(uint256 fundId)`
+     * @return success `FHE.asEbool(true)` to accept, `FHE.asEbool(false)` to refund
      */
-    function donate(
-        uint256 fundId,
-        externalEuint32 encryptedAmount,
-        bytes calldata inputProof
-    ) external nonReentrant {
-        euint32 amount = FHE.fromExternal(encryptedAmount, inputProof);
+    function onConfidentialTransferReceived(
+        address /* operator */,
+        address from,
+        euint64 amount,
+        bytes calldata data
+    ) external override returns (ebool) {
+        address token = msg.sender;
+
+        // Token must be whitelisted
+        if (!_whitelistedTokens[token]) revert TokenNotWhitelisted();
+
+        // Decode fundId from data
+        if (data.length < 32) revert InvalidFundId();
+        uint256 fundId = abi.decode(data, (uint256));
 
         Fund storage fund = _funds[fundId];
-        require(fund.id != 0, "CovalentFund: Fund does not exist");
-        require(fund.active, "CovalentFund: Fund not active");
-        require(block.timestamp >= fund.startTime, "CovalentFund: Fund not started");
-        require(block.timestamp <= fund.endTime, "CovalentFund: Fund ended");
+        if (fund.id == 0) revert FundDoesNotExist();
+        if (!fund.active) revert FundNotActive();
+        if (block.timestamp < fund.startTime) revert FundNotStarted();
+        if (block.timestamp > fund.endTime) revert FundEnded();
 
-        require(
-            _lastDonationBlock[fundId][msg.sender] < block.number,
-            "CovalentFund: Duplicate donation prevented"
-        );
-        _lastDonationBlock[fundId][msg.sender] = block.number;
+        // Track this token for the fund if first time
+        if (!_fundTokenExists[fundId][token]) {
+            _fundTokens[fundId].push(token);
+            _fundTokenExists[fundId][token] = true;
+        }
 
-        fund.encryptedTotal = FHE.add(fund.encryptedTotal, amount);
+        // Initialize encrypted total for this fund+token if needed
+        euint64 currentTotal = _encryptedTotals[fundId][token];
+        if (!FHE.isInitialized(currentTotal)) {
+            currentTotal = FHE.asEuint64(0);
+        }
+
+        // Homomorphic addition
+        euint64 newTotal = FHE.add(currentTotal, amount);
+        FHE.allowThis(newTotal);
+        FHE.allow(newTotal, from);
+        _encryptedTotals[fundId][token] = newTotal;
+
         fund.donationCount++;
 
-        FHE.allowThis(fund.encryptedTotal);
-        FHE.allow(fund.encryptedTotal, msg.sender);
+        emit DonationReceived(fundId, token, from, fund.donationCount, block.timestamp);
 
-        emit DonationMade(fundId, msg.sender, fund.donationCount, block.timestamp);
+        // Allow the calling ERC-7984 token contract to use the returned ebool
+        // (it needs it for FHE.select in its refund logic at _transferAndCall)
+        ebool accepted = FHE.asEbool(true);
+        FHE.allow(accepted, msg.sender);
+        return accepted;
     }
 
-    /**
-     * @notice Request reveal of aggregated total (admin only)
-     * @param fundId The ID of the fund
-     */
-    function requestReveal(uint256 fundId) external override {
+    // =========================================================================
+    //  Reveal & withdraw (per-token)
+    // =========================================================================
+
+    /// @inheritdoc ICovalentFund
+    function requestReveal(uint256 fundId, address token) external override {
         Fund storage fund = _funds[fundId];
-        require(fund.id != 0, "CovalentFund: Fund does not exist");
-        require(_admins[fundId][msg.sender] || msg.sender == fund.creator, "CovalentFund: Not authorized");
-        require(!fund.revealed, "CovalentFund: Already revealed");
+        if (fund.id == 0) revert FundDoesNotExist();
+        if (!_admins[fundId][msg.sender] && msg.sender != fund.creator) revert NotAuthorized();
+        if (_tokenRevealed[fundId][token]) revert AlreadyRevealed();
 
-        _revealRequests[fundId] = true;
+        _revealRequests[fundId][token] = true;
 
-        emit RevealRequested(fundId, msg.sender, block.timestamp);
+        emit RevealRequested(fundId, token, msg.sender, block.timestamp);
+    }
+
+    /// @inheritdoc ICovalentFund
+    function revealTotal(uint256 fundId, address token, uint256 decryptedTotal) external override {
+        if (_funds[fundId].id == 0) revert FundDoesNotExist();
+        if (!_revealRequests[fundId][token]) revert RevealNotRequested();
+        if (_tokenRevealed[fundId][token]) revert AlreadyRevealed();
+        if (msg.sender != owner()) revert OnlyOwnerCanReveal();
+
+        _revealedTotals[fundId][token] = decryptedTotal;
+        _tokenRevealed[fundId][token] = true;
+        _revealRequests[fundId][token] = false;
+
+        emit TotalRevealed(fundId, token, decryptedTotal, msg.sender, block.timestamp);
     }
 
     /**
-     * @notice Reveal the total (called by MCP/owner after decryption)
+     * @notice Withdraw confidential tokens for a specific token from a closed fund.
+     * @dev Transfers the fund's encrypted balance of `token` to the fund recipient
+     *      via `IERC7984.confidentialTransfer`. The recipient can then `unwrap()` on the
+     *      ERC-7984 contract to get back the underlying ERC-20.
      * @param fundId The ID of the fund
-     * @param decryptedTotal The decrypted total amount
+     * @param token The ERC-7984 token address to withdraw
      */
-    function revealTotal(uint256 fundId, uint256 decryptedTotal) external override {
+    function withdraw(uint256 fundId, address token) external override nonReentrant {
         Fund storage fund = _funds[fundId];
-        require(fund.id != 0, "CovalentFund: Fund does not exist");
-        require(_revealRequests[fundId], "CovalentFund: Reveal not requested");
-        require(!fund.revealed, "CovalentFund: Already revealed");
-        require(msg.sender == owner(), "CovalentFund: Only owner can reveal");
+        if (fund.id == 0) revert FundDoesNotExist();
+        if (!_admins[fundId][msg.sender] && msg.sender != fund.creator) revert NotAuthorized();
+        if (!_tokenRevealed[fundId][token]) revert TotalMustBeRevealed();
+        if (block.timestamp <= fund.endTime && fund.active) revert FundStillActive();
+        if (_revealedTotals[fundId][token] == 0) revert NoFundsToWithdraw();
 
-        fund.revealedTotal = decryptedTotal;
-        fund.revealed = true;
-        _revealRequests[fundId] = false;
+        uint256 amount = _revealedTotals[fundId][token];
+        _revealedTotals[fundId][token] = 0;
 
-        emit TotalRevealed(fundId, decryptedTotal, msg.sender, block.timestamp);
+        // Transfer confidential tokens to the fund recipient
+        euint64 encAmount = FHE.asEuint64(uint64(amount));
+        FHE.allowTransient(encAmount, token);
+        IERC7984(token).confidentialTransfer(fund.recipient, encAmount);
+
+        // Check if all tokens have been withdrawn to deactivate the fund
+        bool allWithdrawn = true;
+        address[] memory tokens = _fundTokens[fundId];
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (_revealedTotals[fundId][tokens[i]] > 0) {
+                allWithdrawn = false;
+                break;
+            }
+        }
+        if (allWithdrawn) {
+            fund.active = false;
+        }
+
+        emit Withdrawal(fundId, token, fund.recipient, amount, block.timestamp);
     }
 
-    /**
-     * @notice Close the fund and mark as withdrawn
-     * @param fundId The ID of the fund
-     * @dev In production, this would transfer ERC-20 tokens or unwrap ERC-7984 wrapped tokens.
-     *      For the MVP demo, withdrawal simply closes the fund and records the action.
-     */
-    function withdraw(uint256 fundId) external override nonReentrant {
-        Fund storage fund = _funds[fundId];
-        require(fund.id != 0, "CovalentFund: Fund does not exist");
-        require(
-            _admins[fundId][msg.sender] || msg.sender == fund.creator,
-            "CovalentFund: Not authorized"
-        );
-        require(fund.revealed, "CovalentFund: Total must be revealed before withdrawal");
-        require(block.timestamp > fund.endTime || !fund.active, "CovalentFund: Fund still active");
-        require(fund.revealedTotal > 0, "CovalentFund: No funds to withdraw");
+    // =========================================================================
+    //  Token whitelist (owner only)
+    // =========================================================================
 
-        uint256 amount = fund.revealedTotal;
-        fund.revealedTotal = 0;
-        fund.active = false;
+    /// @inheritdoc ICovalentFund
+    function whitelistToken(address token) external onlyOwner {
+        if (token == address(0)) revert InvalidToken();
+        if (_whitelistedTokens[token]) revert TokenAlreadyWhitelisted();
 
-        // NOTE: Production implementation would transfer underlying ERC-20 tokens
-        // to fund.recipient here. For the demo, we emit the event to record the withdrawal.
-        emit Withdrawal(fundId, fund.recipient, amount, block.timestamp);
+        _whitelistedTokens[token] = true;
+        emit TokenWhitelisted(token);
     }
 
-    /**
-     * @notice Add an admin to a fund
-     * @param fundId The ID of the fund
-     * @param admin The address to add as admin
-     */
+    /// @inheritdoc ICovalentFund
+    function removeWhitelistedToken(address token) external onlyOwner {
+        if (!_whitelistedTokens[token]) revert TokenNotWhitelisted();
+
+        _whitelistedTokens[token] = false;
+        emit TokenRemoved(token);
+    }
+
+    /// @inheritdoc ICovalentFund
+    function isWhitelisted(address token) external view returns (bool) {
+        return _whitelistedTokens[token];
+    }
+
+    // =========================================================================
+    //  Admin management
+    // =========================================================================
+
     function addAdmin(uint256 fundId, address admin) external {
         Fund storage fund = _funds[fundId];
-        require(fund.id != 0, "CovalentFund: Fund does not exist");
-        require(
-            msg.sender == fund.creator || _admins[fundId][msg.sender],
-            "CovalentFund: Not authorized"
-        );
+        if (fund.id == 0) revert FundDoesNotExist();
+        if (msg.sender != fund.creator) revert NotAuthorized();
+        if (admin == address(0)) revert InvalidAdminAddress();
+        if (_admins[fundId][admin]) revert AlreadyAdmin();
+
         _admins[fundId][admin] = true;
+        emit AdminAdded(fundId, admin, msg.sender);
     }
 
-    /**
-     * @notice Remove an admin from a fund (creator only)
-     * @param fundId The ID of the fund
-     * @param admin The address to remove as admin
-     */
     function removeAdmin(uint256 fundId, address admin) external {
         Fund storage fund = _funds[fundId];
-        require(fund.id != 0, "CovalentFund: Fund does not exist");
-        require(msg.sender == fund.creator, "CovalentFund: Only creator can remove admins");
-        require(admin != fund.creator, "CovalentFund: Cannot remove creator");
+        if (fund.id == 0) revert FundDoesNotExist();
+        if (msg.sender != fund.creator) revert NotAuthorized();
+        if (admin == fund.creator) revert CannotRemoveCreator();
+        if (!_admins[fundId][admin]) revert NotAnAdmin();
+
         _admins[fundId][admin] = false;
+        emit AdminRemoved(fundId, admin, msg.sender);
     }
 
-    /**
-     * @notice Check if an address is an admin of a fund
-     * @param fundId The ID of the fund
-     * @param account The address to check
-     * @return isAdmin True if the address is an admin
-     */
     function isAdmin(uint256 fundId, address account) external view returns (bool) {
-        Fund storage fund = _funds[fundId];
-        return _admins[fundId][account] || account == fund.creator;
+        return _admins[fundId][account] || account == _funds[fundId].creator;
     }
 
-    /**
-     * @notice Reject direct ETH transfers
-     */
+    // =========================================================================
+    //  Fallback
+    // =========================================================================
+
+    /// @notice Reject direct ETH transfers
     receive() external payable {
-        revert("CovalentFund: Use donate() function");
+        revert NoDirectETH();
     }
 }

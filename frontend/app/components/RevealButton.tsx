@@ -21,12 +21,10 @@ export default function RevealButton({ fundId, onReveal }: RevealButtonProps) {
     try {
       await requestReveal(fundId);
       setSuccess(true);
-
-      if (onReveal) {
-        onReveal(fundId);
-      }
+      if (onReveal) onReveal(fundId);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to request reveal";
+      const message =
+        err instanceof Error ? err.message : "Failed to request reveal";
       setError(message);
     } finally {
       setLoading(false);
@@ -34,38 +32,45 @@ export default function RevealButton({ fundId, onReveal }: RevealButtonProps) {
   };
 
   return (
-    <div>
+    <div className="space-y-3">
       <button
         onClick={handleReveal}
         disabled={loading || success}
-        className="bg-purple-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+        className="w-full gradient-btn glow-blue text-white font-extrabold py-5 px-8 rounded-2xl text-lg flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
       >
         {loading ? (
           <>
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Requesting...
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            Processing...
           </>
         ) : success ? (
-          "Reveal Requested"
+          <>
+            <span className="material-icons">check_circle</span>
+            Reveal Requested
+          </>
         ) : (
           <>
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-            </svg>
-            Request Reveal
+            <span className="material-icons">lock_open</span>
+            Reveal Total Raised
           </>
         )}
       </button>
 
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+          <span className="material-icons text-red-400 text-sm">error</span>
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
 
       {success && (
-        <p className="mt-2 text-sm text-green-600">
-          Reveal requested. MCP will decrypt the aggregated total.
-        </p>
+        <div className="flex items-start gap-3 p-4 bg-primary-blue/5 border border-primary-blue/20 rounded-xl">
+          <span className="material-icons text-primary-blue mt-0.5">info</span>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Reveal requested. Only the combined total will be shown — individual
+            donor amounts stay private forever.
+          </p>
+        </div>
       )}
     </div>
   );

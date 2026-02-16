@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Covalent | Fund Overview &amp; Donation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "deep-slate": "#121826",
+              "lighter-slate": "#1c2536",
+              "soft-white": "#f8fafc",
+              "primary-blue": "#4f95ff",
+              "primary-purple": "#a78bfa",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"],
+              "mono": ["'JetBrains Mono'", "monospace"]
+            },
+            borderRadius: {
+              "DEFAULT": "0.5rem",
+              "lg": "0.75rem",
+              "xl": "1rem",
+              "2xl": "1.5rem",
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style type="text/tailwindcss">
+        :root {
+            --bg-main: #121826;
+            --bg-card: #1c2536;
+            --accent-gradient: linear-gradient(135deg, #4f95ff 0%, #a78bfa 100%);
+        }
+        body { 
+            font-family: 'Manrope', sans-serif;
+            background-color: var(--bg-main);
+            color: #f8fafc;
+        }
+        .gradient-btn {
+            background: var(--accent-gradient);
+            transition: all 0.2s ease;
+        }
+        .gradient-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .gradient-text {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .card-shadow {
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-deep-slate text-soft-white font-display min-h-screen">
+<nav class="sticky top-0 z-50 bg-deep-slate/80 backdrop-blur-md border-b border-white/5">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex justify-between h-16 items-center">
+<div class="flex items-center gap-2">
+<div class="p-2 rounded-lg bg-gradient-to-br from-primary-blue to-primary-purple">
+<span class="material-icons text-white text-xl">security</span>
+</div>
+<span class="text-2xl font-extrabold tracking-tight text-white">Covalent</span>
+</div>
+<div class="hidden md:flex items-center space-x-8">
+<a class="font-medium text-slate-300 hover:text-primary-blue transition-colors" href="#">Explore</a>
+<a class="font-medium text-slate-300 hover:text-primary-blue transition-colors" href="#">Governance</a>
+<button class="gradient-btn text-white px-6 py-2 rounded-xl font-bold transition-all flex items-center gap-2">
+<span class="material-icons text-sm">account_balance_wallet</span>
+                        Connect Wallet
+                    </button>
+</div>
+</div>
+</div>
+</nav>
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
+<div class="mb-12">
+<nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+<a class="hover:text-primary-blue" href="#">Campaigns</a>
+<span class="material-icons text-xs">chevron_right</span>
+<span class="text-slate-300">Clean Water Initiative</span>
+</nav>
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+<h1 class="text-4xl md:text-5xl font-extrabold text-white">Donate to Impact</h1>
+<div class="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 rounded-full">
+<span class="material-icons text-primary-purple text-sm">lock</span>
+<span class="text-sm font-semibold text-slate-300">FHE Encryption Active</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<div class="bg-lighter-slate rounded-2xl p-8 card-shadow border border-white/5 flex flex-col justify-between">
+<div>
+<div class="flex items-start justify-between mb-6">
+<div class="bg-primary-blue/10 text-primary-blue px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider">
+                            Environmental
+                        </div>
+<div class="flex items-center gap-1.5 bg-green-500/10 text-green-400 px-3 py-1 rounded-full text-xs font-bold">
+<span class="material-icons text-[14px]">verified</span> Verified
+                        </div>
+</div>
+<h2 class="text-3xl font-bold text-white mb-4">Clean Water Initiative</h2>
+<p class="text-slate-400 leading-relaxed mb-8">
+                        Providing advanced filtration systems and sustainable water infrastructure to remote communities in Sub-Saharan Africa. Your contribution directly funds hardware and installation.
+                    </p>
+<div class="grid grid-cols-2 gap-8 mb-8">
+<div>
+<p class="text-slate-500 text-sm font-medium mb-1 uppercase tracking-tight">Target Amount</p>
+<p class="text-3xl font-bold text-white">$50,000</p>
+</div>
+<div>
+<p class="text-slate-500 text-sm font-medium mb-1 uppercase tracking-tight">Raised (Encrypted)</p>
+<p class="text-3xl font-mono font-medium text-primary-blue">********</p>
+</div>
+</div>
+<div class="mb-8">
+<div class="flex justify-between items-end mb-3">
+<div class="flex items-center gap-2">
+<span class="material-icons text-slate-400 text-sm">group</span>
+<span class="text-slate-300 font-bold">1,240 Donors</span>
+</div>
+<span class="text-xs text-slate-500 italic">Progress Hidden for Privacy</span>
+</div>
+<div class="relative group">
+<div class="w-full h-3 bg-deep-slate rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary-blue to-primary-purple rounded-full opacity-60" style="width: 65%"></div>
+</div>
+<div class="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-3 py-1.5 rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                Your donation is private and encrypted
+                                <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3 p-4 bg-deep-slate/50 rounded-xl border border-white/5">
+<div class="w-10 h-10 rounded-lg bg-primary-purple/10 flex items-center justify-center text-primary-purple">
+<span class="material-icons text-xl">shield</span>
+</div>
+<div>
+<p class="text-sm font-bold text-white">🔒 Private Donations</p>
+<p class="text-xs text-slate-500">Your address and amount are never revealed.</p>
+</div>
+</div>
+</div>
+<div class="bg-lighter-slate rounded-2xl p-8 card-shadow border border-white/5">
+<h3 class="text-xl font-bold text-white mb-6">Make a Contribution</h3>
+<div class="space-y-6">
+<div>
+<label class="block text-sm font-medium text-slate-400 mb-3">Amount to Donate</label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="text-slate-400 text-xl font-medium">$</span>
+</div>
+<input class="block w-full bg-deep-slate border-white/10 rounded-xl py-5 pl-10 pr-4 text-2xl font-mono text-white placeholder:text-slate-600 focus:ring-2 focus:ring-primary-blue/50 focus:border-primary-blue transition-all" placeholder="0.00" type="text"/>
+</div>
+<div class="flex gap-2 mt-4">
+<button class="flex-1 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold hover:bg-white/10 transition-colors">$10</button>
+<button class="flex-1 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold hover:bg-white/10 transition-colors">$50</button>
+<button class="flex-1 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold hover:bg-white/10 transition-colors">$100</button>
+<button class="flex-1 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold hover:bg-white/10 transition-colors">Max</button>
+</div>
+</div>
+<div class="space-y-4">
+<button class="w-full gradient-btn text-white font-extrabold py-5 rounded-xl shadow-lg flex items-center justify-center gap-3 text-lg">
+<span class="material-icons">enhanced_encryption</span>
+                            Donate Privately
+                        </button>
+<div class="space-y-3">
+<div class="flex items-center justify-center gap-3 py-3 px-4 bg-white/5 rounded-xl border border-white/5 opacity-60">
+<div class="w-4 h-4 border-2 border-primary-blue border-t-transparent rounded-full animate-spin"></div>
+<span class="text-sm font-medium text-slate-300">Processing...</span>
+</div>
+<div class="flex items-center justify-center gap-2 py-3 px-4 bg-green-500/10 rounded-xl border border-green-500/20">
+<span class="text-sm font-bold text-green-400">Donation Successful ✅</span>
+</div>
+</div>
+</div>
+<div class="pt-6 border-t border-white/5">
+<div class="flex gap-3">
+<span class="material-icons text-primary-blue text-sm">info</span>
+<p class="text-xs text-slate-500 leading-relaxed">
+                                Covalent uses <strong>Fully Homomorphic Encryption (FHE)</strong>. This means your donation data stays encrypted even while the platform calculates total raised amounts. No one, not even us, can see your contribution.
+                            </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<section class="mt-20">
+<div class="flex items-center justify-between mb-8">
+<h2 class="text-2xl font-bold text-white">Other Active Campaigns</h2>
+<button class="text-primary-blue text-sm font-bold hover:underline">View All</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-lighter-slate/50 p-6 rounded-xl border border-white/5 hover:border-white/10 transition-all cursor-pointer">
+<h4 class="font-bold text-white mb-2">Web3 Privacy Tools</h4>
+<div class="flex justify-between items-center text-xs">
+<span class="text-slate-500 font-mono">••••••</span>
+<span class="text-primary-purple">42% Funded</span>
+</div>
+</div>
+<div class="bg-lighter-slate/50 p-6 rounded-xl border border-white/5 hover:border-white/10 transition-all cursor-pointer">
+<h4 class="font-bold text-white mb-2">Open Education AI</h4>
+<div class="flex justify-between items-center text-xs">
+<span class="text-slate-500 font-mono">••••••</span>
+<span class="text-primary-purple">89% Funded</span>
+</div>
+</div>
+<div class="bg-lighter-slate/50 p-6 rounded-xl border border-white/5 hover:border-white/10 transition-all cursor-pointer">
+<h4 class="font-bold text-white mb-2">Ocean Cleanup Fnd</h4>
+<div class="flex justify-between items-center text-xs">
+<span class="text-slate-500 font-mono">••••••</span>
+<span class="text-primary-purple">12% Funded</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<footer class="bg-deep-slate border-t border-white/5 py-12">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="flex items-center gap-2">
+<div class="p-1.5 rounded bg-white/5">
+<span class="material-icons text-primary-blue text-sm">security</span>
+</div>
+<span class="font-bold text-white tracking-tight">Covalent Protocol</span>
+</div>
+<div class="flex gap-8 text-sm text-slate-500">
+<a class="hover:text-soft-white transition-colors" href="#">Privacy</a>
+<a class="hover:text-soft-white transition-colors" href="#">Security Audit</a>
+<a class="hover:text-soft-white transition-colors" href="#">Technical Docs</a>
+</div>
+<p class="text-xs text-slate-600 font-mono">© 2024 ENCRYPTED_FUTURE</p>
+</div>
+</footer>
+
+</body></html>

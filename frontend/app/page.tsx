@@ -1,149 +1,212 @@
 import Link from "next/link";
 
-export default function HomePage() {
+export default function LandingPage() {
   return (
-    <div className="min-h-[calc(100vh-4rem)]">
+    <>
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-purple-50" />
-        <div className="relative max-w-5xl mx-auto px-4 py-24 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium mb-6">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            Powered by Zama FHEVM
+      <header className="relative overflow-hidden pt-20 pb-24 md:pt-32 md:pb-40">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary-blue/10 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-primary-purple/10 rounded-full blur-[120px]" />
+        </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/5 border border-white/10 text-primary-blue font-bold text-sm mb-8">
+            <span className="material-icons text-sm mr-2">verified_user</span>
+            Privacy-First Giving
           </div>
-
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Donate Privately.<br />
-            <span className="text-indigo-600">Verify Transparently.</span>
+          <h1 className="text-5xl md:text-7xl font-extrabold text-white leading-[1.1] tracking-tight mb-6">
+            Empower Change,{" "}
+            <br />
+            <span className="gradient-text">Protect Your Identity.</span>
           </h1>
-
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10">
-            Covalent enables confidential donations using Fully Homomorphic Encryption.
-            Individual amounts stay private forever — only aggregated totals can be revealed.
+          <p className="max-w-2xl mx-auto text-xl text-slate-400 mb-10 leading-relaxed">
+            Covalent keeps your donations completely private and secure.
+            Give anonymously to causes you believe in — nobody sees how much
+            you gave, not even us.
           </p>
-
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/donate"
-              className="px-8 py-3.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+              className="px-10 py-4 gradient-btn text-white font-bold rounded-xl text-lg shadow-lg inline-block"
             >
-              Make a Donation
+              Explore Causes
             </Link>
-            <Link
-              href="/create"
-              className="px-8 py-3.5 bg-white text-gray-900 rounded-xl font-semibold hover:bg-gray-50 transition-colors border border-gray-200"
+            <a
+              href="#how-it-works"
+              className="px-10 py-4 bg-white/5 text-white font-bold rounded-xl text-lg border border-white/10 hover:bg-white/10 transition-all inline-block"
             >
-              Create a Fund
-            </Link>
+              How it Works
+            </a>
+          </div>
+        </div>
+      </header>
+
+      {/* Trust bar */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 mb-20 relative z-20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 bg-lighter-slate p-8 rounded-2xl card-shadow border border-white/5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-primary-blue/10 rounded-xl flex items-center justify-center text-primary-blue">
+              <span className="material-icons">visibility_off</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-white">Full Privacy</h3>
+              <p className="text-sm text-slate-400">
+                Your identity stays hidden
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-primary-purple/10 rounded-xl flex items-center justify-center text-primary-purple">
+              <span className="material-icons">public</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-white">Impact Driven</h3>
+              <p className="text-sm text-slate-400 font-mono">
+                &#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;
+                Donated
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-primary-blue/10 rounded-xl flex items-center justify-center text-primary-blue">
+              <span className="material-icons">bolt</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-white">Instant Impact</h3>
+              <p className="text-sm text-slate-400">
+                Fast, secure transactions
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="max-w-5xl mx-auto px-4 py-20">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">How It Works</h2>
-
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="h-14 w-14 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg className="h-7 w-7 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Encrypt Locally</h3>
-            <p className="text-gray-600">
-              Your donation amount is encrypted in your browser before it ever leaves your device.
-              Nobody — not even the blockchain — can see the amount.
-            </p>
-          </div>
-
-          <div className="text-center">
-            <div className="h-14 w-14 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg className="h-7 w-7 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Compute on Ciphertext</h3>
-            <p className="text-gray-600">
-              Smart contracts add encrypted donations together using FHE arithmetic.
-              The total is computed without ever decrypting individual amounts.
-            </p>
-          </div>
-
-          <div className="text-center">
-            <div className="h-14 w-14 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg className="h-7 w-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Reveal Only the Total</h3>
-            <p className="text-gray-600">
-              Authorized administrators can reveal the aggregated total.
-              Individual donation amounts remain encrypted permanently.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Use cases */}
-      <section className="bg-white border-y border-gray-200">
-        <div className="max-w-5xl mx-auto px-4 py-20">
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">Built for Sensitive Causes</h2>
-          <p className="text-gray-600 text-center max-w-2xl mx-auto mb-12">
-            When donors need protection, Covalent ensures their contributions remain confidential.
-          </p>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: "Investigative Journalism", icon: "M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" },
-              { label: "Labor Unions", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" },
-              { label: "Human Rights NGOs", icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-              { label: "Whistleblower Funds", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 border border-gray-100">
-                <svg className="h-5 w-5 text-indigo-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                </svg>
-                <span className="text-sm font-medium text-gray-900">{item.label}</span>
+      {/* How it Works */}
+      <section
+        id="how-it-works"
+        className="bg-white/5 py-24 border-y border-white/5"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            {/* Cards */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <div className="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow">
+                  <span className="material-icons text-primary-blue text-3xl mb-4">
+                    encrypted
+                  </span>
+                  <h4 className="font-bold text-white mb-2">
+                    End-to-End Privacy
+                  </h4>
+                  <p className="text-sm text-slate-400">
+                    Your donation amount is hidden before it leaves your wallet.
+                  </p>
+                </div>
+                <div className="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow translate-x-4">
+                  <span className="material-icons text-primary-purple text-3xl mb-4">
+                    settings_suggest
+                  </span>
+                  <h4 className="font-bold text-white mb-2">
+                    Hidden Amounts
+                  </h4>
+                  <p className="text-sm text-slate-400">
+                    We calculate totals without ever seeing individual
+                    contributions.
+                  </p>
+                </div>
               </div>
-            ))}
+              <div className="space-y-4 pt-12">
+                <div className="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow">
+                  <span className="material-icons text-primary-blue text-3xl mb-4">
+                    analytics
+                  </span>
+                  <h4 className="font-bold text-white mb-2">
+                    Verified Impact
+                  </h4>
+                  <p className="text-sm text-slate-400">
+                    Recipients get funds, you get proof your donation
+                    made a difference.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Explainer */}
+            <div>
+              <h2 className="text-4xl font-extrabold text-white mb-6">
+                How Private Donations Work
+              </h2>
+              <p className="text-lg text-slate-400 mb-8 leading-relaxed">
+                Covalent uses advanced encryption so your donation amount is
+                hidden at every step. We can verify that fundraising goals are
+                met without ever knowing who donated or how much each person
+                gave.
+              </p>
+              <ul className="space-y-4 mb-10">
+                <li className="flex items-start gap-3">
+                  <span className="material-icons text-primary-blue mt-1">
+                    check_circle
+                  </span>
+                  <span className="text-slate-300 font-medium">
+                    No one — including Covalent — can see your transaction
+                    history.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="material-icons text-primary-blue mt-1">
+                    check_circle
+                  </span>
+                  <span className="text-slate-300 font-medium">
+                    Your wallet address is never linked to the cause in public
+                    records.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="material-icons text-primary-blue mt-1">
+                    check_circle
+                  </span>
+                  <span className="text-slate-300 font-medium">
+                    Individual donations stay private forever — only
+                    totals can be revealed.
+                  </span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Tech stack */}
-      <section className="max-w-5xl mx-auto px-4 py-20">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Technology</h2>
-        <div className="grid sm:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">Zama FHEVM</h3>
-            <p className="text-sm text-gray-600">
-              Fully Homomorphic Encryption on Ethereum. Compute on encrypted data without decryption.
-            </p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">Solidity + Hardhat</h3>
-            <p className="text-sm text-gray-600">
-              Battle-tested smart contract tooling with comprehensive test coverage and FHEVM integration.
-            </p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">Next.js + wagmi</h3>
-            <p className="text-sm text-gray-600">
-              Modern React frontend with wallet integration and client-side FHE encryption.
-            </p>
+      {/* CTA */}
+      <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="gradient-btn rounded-3xl p-12 relative overflow-hidden text-center md:text-left">
+          <div className="absolute right-0 top-0 w-1/3 h-full bg-white/10 -skew-x-12 transform translate-x-20" />
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <div>
+              <h2 className="text-4xl font-extrabold text-white mb-4">
+                Start giving privately today
+              </h2>
+              <p className="text-white/90 text-lg">
+                Connect your wallet, choose a cause, and donate privately
+                in seconds. Your identity stays yours.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-end">
+              <Link
+                href="/donate"
+                className="bg-white text-primary-blue font-bold px-8 py-4 rounded-xl hover:bg-slate-100 transition-colors shadow-lg text-center"
+              >
+                Donate Now
+              </Link>
+              <Link
+                href="/create"
+                className="bg-white/10 text-white font-bold px-8 py-4 rounded-xl border border-white/20 hover:bg-white/20 transition-colors text-center"
+              >
+                Create a Fund
+              </Link>
+            </div>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white">
-        <div className="max-w-5xl mx-auto px-4 py-8 text-center text-sm text-gray-500">
-          Covalent — Confidential Donation Infrastructure. Built for the Zama Developer Program.
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }

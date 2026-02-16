@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import WalletConnect from "./WalletConnect";
 
 const navLinks = [
-  { href: "/", label: "Home" },
+  { href: "/", label: "Explore" },
   { href: "/donate", label: "Donate" },
+  { href: "/private", label: "Make Private" },
   { href: "/create", label: "Create Fund" },
   { href: "/admin", label: "Admin" },
 ];
@@ -15,36 +16,42 @@ export default function Navbar() {
   const pathname = usePathname();
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <span className="text-xl font-bold text-gray-900">Covalent</span>
-            </Link>
-
-            <div className="hidden md:flex items-center gap-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    pathname === link.href
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
+    <nav
+      className="sticky top-0 z-50 bg-deep-slate/80 backdrop-blur-md border-b border-white/5"
+      aria-label="Main navigation"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16 items-center">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2" aria-label="Covalent home">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-primary-blue to-primary-purple">
+              <span className="material-icons text-white text-xl" aria-hidden="true">security</span>
             </div>
+            <span className="text-2xl font-extrabold tracking-tight text-white">
+              Covalent
+            </span>
+          </Link>
+
+          {/* Nav Links */}
+          <div className="hidden md:flex items-center space-x-1" role="menubar">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                role="menuitem"
+                aria-current={pathname === link.href ? "page" : undefined}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname === link.href
+                    ? "bg-primary-blue/10 text-primary-blue"
+                    : "text-slate-300 hover:text-primary-blue"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
+          {/* Wallet */}
           <WalletConnect />
         </div>
       </div>

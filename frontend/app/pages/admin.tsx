@@ -2,29 +2,32 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAccount } from "wagmi";
-import { getFund, getEncryptedTotal, checkIsAdmin, withdrawFund } from "@/app/lib/contract";
+
+const USDT_DECIMALS_DIVISOR = 1_000_000;
+import {
+  getFund,
+  getEncryptedTotal,
+  getRevealedTotal,
+  isTokenRevealed,
+  checkIsAdmin,
+  withdrawFund,
+  type FundData,
+} from "@/app/lib/contract";
 import RevealButton from "@/app/components/RevealButton";
 import FundStats from "@/app/components/FundStats";
 
-interface FundData {
-  id: number;
-  title: string;
-  description: string;
-  recipient: string;
-  creator: string;
-  startTime: number;
-  endTime: number;
-  active: boolean;
-  encryptedTotal: string;
-  donationCount: number;
+interface TokenStats {
+  encryptedTotalHex: string;
   revealedTotal: number;
   revealed: boolean;
 }
 
+type AdminFund = FundData & TokenStats;
+
 export default function AdminPage() {
   const { address, isConnected } = useAccount();
   const [fundIdInput, setFundIdInput] = useState("");
-  const [fund, setFund] = useState<FundData | null>(null);
+  const [fund, setFund] = useState<AdminFund | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,14 +42,20 @@ export default function AdminPage() {
 
     try {
       const fundId = parseInt(fundIdInput, 10);
-      const fundData = await getFund(fundId);
-      const encryptedTotal = await getEncryptedTotal(fundId);
-      const adminStatus = await checkIsAdmin(fundId, address);
+      const [fundData, encryptedTotalHex, revealed, revealedTotal, adminStatus] =
+        await Promise.all([
+          getFund(fundId),
+          getEncryptedTotal(fundId).catch(() => "0x" + "0".repeat(64)),
+          isTokenRevealed(fundId).catch(() => false),
+          getRevealedTotal(fundId).catch(() => 0),
+          checkIsAdmin(fundId, address),
+        ]);
 
-      setFund({ ...fundData, encryptedTotal });
+      setFund({ ...fundData, encryptedTotalHex, revealed, revealedTotal });
       setIsAdmin(adminStatus);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to load fund";
+      const message =
+        err instanceof Error ? err.message : "Failed to load fund";
       setError(message);
     } finally {
       setLoading(false);
@@ -54,10 +63,10 @@ export default function AdminPage() {
   }, [fundIdInput, address]);
 
   useEffect(() => {
-    if (fund) {
+    if (fundIdInput && address) {
       loadFund();
     }
-  }, [address]);
+  }, [address, fundIdInput, loadFund]);
 
   const handleWithdraw = async () => {
     if (!fund) return;
@@ -68,115 +77,271 @@ export default function AdminPage() {
       await withdrawFund(fund.id);
       await loadFund();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to withdraw";
+      const message =
+        err instanceof Error ? err.message : "Failed to withdraw";
       setError(message);
     } finally {
       setWithdrawLoading(false);
     }
   };
 
+  // Format revealed total from raw (6 decimals) to human-readable
+  const formattedRevealedTotal = fund?.revealed
+    ? (fund.revealedTotal / USDT_DECIMALS_DIVISOR).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : "0";
+
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-lg max-w-md text-center">
-          <svg className="h-8 w-8 mx-auto mb-2 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          <p className="font-medium">Connect your wallet to access the admin panel</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 px-8 py-6 rounded-2xl max-w-md text-center">
+          <span className="material-icons text-3xl mb-3">
+            account_balance_wallet
+          </span>
+          <p className="font-bold text-lg text-white mb-2">
+            Connect Your Wallet
+          </p>
+          <p className="text-sm text-slate-400">
+            Connect your wallet to access the admin panel and manage funds.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
-          <p className="mt-2 text-gray-600">Manage funds, request reveals, and withdraw</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <label htmlFor="fundId" className="block text-sm font-medium text-gray-700 mb-2">
-            Fund ID
-          </label>
-          <div className="flex gap-3">
-            <input
-              id="fundId"
-              type="number"
-              min="1"
-              step="1"
-              value={fundIdInput}
-              onChange={(e) => setFundIdInput(e.target.value)}
-              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Enter fund ID to manage"
-            />
-            <button
-              onClick={loadFund}
-              disabled={loading || !fundIdInput}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "Loading..." : "Load Fund"}
-            </button>
+    <div className="max-w-3xl mx-auto px-4 py-12 space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-2xl font-bold text-white">Covalent Admin</span>
           </div>
+          <p className="text-slate-400 text-sm">
+            Manage funds, reveal totals, and withdraw donations
+          </p>
         </div>
+      </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
-            {error}
-          </div>
-        )}
+      {/* Fund selector */}
+      <section className="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow">
+        <label className="text-sm font-semibold text-slate-300 block mb-3">
+          Fund ID
+        </label>
+        <div className="flex gap-3">
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={fundIdInput}
+            onChange={(e) => setFundIdInput(e.target.value)}
+            className="flex-1 bg-deep-slate border-2 border-white/10 rounded-xl px-6 py-4 text-xl font-mono text-white focus:ring-2 focus:ring-primary-blue/30 focus:border-primary-blue outline-none transition-all placeholder:text-slate-700"
+            placeholder="Enter fund ID to manage"
+          />
+          <button
+            onClick={loadFund}
+            disabled={loading || !fundIdInput}
+            className="px-8 py-4 gradient-btn text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {loading ? "Loading..." : "Load Fund"}
+          </button>
+        </div>
+      </section>
 
-        {fund && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">{fund.title}</h2>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    isAdmin ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {isAdmin ? "Admin" : "Not Admin"}
-                </span>
-              </div>
-              <p className="text-gray-600 text-sm mb-4">{fund.description}</p>
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+          <span className="material-icons text-red-400 text-sm">error</span>
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Fund loaded */}
+      {fund && (
+        <div className="space-y-8">
+          {/* Fund header */}
+          <section className="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-white">
+                {fund.title ?? `Fund #${fund.id}`}
+              </h2>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  isAdmin
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                }`}
+              >
+                {isAdmin ? "Administrator" : "Not Admin"}
+              </span>
             </div>
+            {fund.description && (
+              <p className="text-slate-400 text-sm">{fund.description}</p>
+            )}
+          </section>
 
-            <FundStats
-              encryptedTotal={fund.encryptedTotal}
-              donationCount={fund.donationCount}
-              revealedTotal={fund.revealedTotal}
-              revealed={fund.revealed}
-            />
+          {/* Stats */}
+          <FundStats
+            encryptedTotal={fund.encryptedTotalHex}
+            donationCount={fund.donationCount}
+            revealedTotal={fund.revealedTotal}
+            revealed={fund.revealed}
+          />
 
-            {isAdmin && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Admin Actions</h3>
-                <div className="flex flex-wrap gap-3">
-                  {!fund.revealed && (
-                    <RevealButton fundId={fund.id} onReveal={() => loadFund()} />
-                  )}
-
-                  {fund.revealed && fund.revealedTotal > 0 && fund.active && (
-                    <button
-                      onClick={handleWithdraw}
-                      disabled={withdrawLoading}
-                      className="bg-green-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                    >
-                      {withdrawLoading ? "Processing..." : "Withdraw Funds"}
-                    </button>
-                  )}
-
-                  {fund.revealed && !fund.active && (
-                    <p className="text-sm text-gray-500 py-2">Fund has been withdrawn and closed.</p>
-                  )}
+          {/* Reveal Results (if revealed) */}
+          {fund.revealed && (
+            <section className="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary-purple/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold text-white">
+                  Reveal Results
+                </h2>
+                <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20 text-xs font-bold uppercase tracking-wider">
+                  <span className="material-icons text-xs">verified</span>
+                  Verified
                 </div>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              <div className="flex flex-col items-center justify-center py-6">
+                <div className="flex items-baseline gap-4 mb-2">
+                  <span className="text-6xl font-black text-white tracking-tight">
+                    ${formattedRevealedTotal}
+                  </span>
+                  <span className="material-icons text-emerald-400 text-4xl">
+                    check_circle
+                  </span>
+                </div>
+                <p className="text-slate-400 text-sm">
+                  Total raised from {fund.donationCount}{" "}
+                  private donations
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* Admin actions */}
+          {isAdmin && (
+            <section className="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-1">
+                    Reveal Controls
+                  </h2>
+                  <p className="text-slate-400 text-sm">
+                    Choose what to reveal about this fund
+                  </p>
+                </div>
+                <span className="material-icons text-primary-blue text-3xl">
+                  analytics
+                </span>
+              </div>
+
+              <div className="space-y-6">
+                {/* Reveal type selector */}
+                <div className="flex flex-col gap-4">
+                  <label className="text-sm font-semibold text-slate-300">
+                    What to Reveal
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button className="flex items-center justify-between p-4 rounded-xl border-2 border-primary-blue bg-primary-blue/5 text-soft-white">
+                      <div className="flex items-center gap-3">
+                        <span className="material-icons text-primary-blue">
+                          add
+                        </span>
+                        <span className="font-bold">Total Sum</span>
+                      </div>
+                      <span className="material-icons text-primary-blue text-xl">
+                        check_circle
+                      </span>
+                    </button>
+                    <button className="flex items-center justify-between p-4 rounded-xl border border-white/10 text-slate-400 opacity-50 cursor-not-allowed">
+                      <div className="flex items-center gap-3">
+                        <span className="material-icons">avg_pace</span>
+                        <span className="font-bold">Average</span>
+                      </div>
+                      <div className="w-5 h-5 rounded-full border border-white/20" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Reveal / Withdraw buttons */}
+                {!fund.revealed && (
+                  <RevealButton
+                    fundId={fund.id}
+                    onReveal={() => loadFund()}
+                  />
+                )}
+
+                {fund.revealed && fund.revealedTotal > 0 && fund.active && (
+                  <button
+                    onClick={handleWithdraw}
+                    disabled={withdrawLoading}
+                    className="w-full gradient-btn glow-blue text-white font-extrabold py-5 px-8 rounded-2xl text-lg flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {withdrawLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-icons">
+                          account_balance
+                        </span>
+                        Withdraw Funds to Recipient
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {fund.revealed && !fund.active && (
+                  <div className="flex items-center gap-2 p-4 bg-slate-500/10 border border-slate-500/20 rounded-xl text-center justify-center">
+                    <span className="material-icons text-slate-400 text-sm">
+                      check_circle
+                    </span>
+                    <p className="text-sm text-slate-400">
+                      Fund has been withdrawn and closed.
+                    </p>
+                  </div>
+                )}
+
+                {/* Info box */}
+                <div className="flex items-start gap-3 p-4 bg-primary-blue/5 border border-primary-blue/20 rounded-xl">
+                  <span className="material-icons text-primary-blue mt-0.5">
+                    info
+                  </span>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Revealing shows only the combined donation total — individual
+                    amounts stay private forever. Withdrawal sends the funds
+                    to the recipient.
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Fund details */}
+          <section className="bg-lighter-slate p-6 rounded-2xl border border-white/5 card-shadow">
+            <div className="grid grid-cols-2 gap-6 text-sm">
+              <div>
+                <p className="text-slate-500 mb-1">Recipient</p>
+                <p className="font-mono text-slate-300 truncate">
+                  {fund.recipient.slice(0, 6)}...{fund.recipient.slice(-4)}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-500 mb-1">Status</p>
+                <p className={fund.active ? "text-emerald-400 font-bold" : "text-slate-400"}>
+                  {fund.active ? "Active" : "Closed"}
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+
     </div>
   );
 }

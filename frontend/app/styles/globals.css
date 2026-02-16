@@ -2,13 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-main: #121826;
+  --bg-card: #1c2536;
+  --accent-gradient: linear-gradient(135deg, #4f95ff 0%, #a78bfa 100%);
+}
+
 body {
+  font-family: "Manrope", sans-serif;
+  background-color: var(--bg-main);
+  color: #f8fafc;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .gradient-btn {
+    background: var(--accent-gradient);
+    @apply transition-all duration-200;
+  }
+  .gradient-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+  .gradient-text {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .card-shadow {
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  }
+  .glow-blue {
+    box-shadow: 0 0 20px rgba(79, 149, 255, 0.4);
   }
 }

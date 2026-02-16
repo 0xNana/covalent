@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Covalent | Admin Reveal Controls</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "deep-slate": "#121826",
+              "lighter-slate": "#1c2536",
+              "soft-white": "#f8fafc",
+              "primary-blue": "#4f95ff",
+              "primary-purple": "#a78bfa",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"],
+              "mono": ["'JetBrains Mono'", "monospace"]
+            },
+            borderRadius: {
+              "DEFAULT": "0.5rem",
+              "lg": "0.75rem",
+              "xl": "1rem",
+              "2xl": "1.5rem",
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style type="text/tailwindcss">
+        :root {
+            --bg-main: #121826;
+            --bg-card: #1c2536;
+            --accent-gradient: linear-gradient(135deg, #4f95ff 0%, #a78bfa 100%);
+        }
+        body { 
+            font-family: 'Manrope', sans-serif;
+            background-color: var(--bg-main);
+            color: #f8fafc;
+        }
+        .gradient-btn {
+            background: var(--accent-gradient);
+            transition: all 0.2s ease;
+        }
+        .gradient-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .glow-blue {
+            box-shadow: 0 0 20px rgba(79, 149, 255, 0.4);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+        .terminal-text {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body class="bg-deep-slate text-soft-white font-display min-h-screen">
+<nav class="sticky top-0 z-50 bg-deep-slate/80 backdrop-blur-md border-b border-white/5">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex justify-between h-16 items-center">
+<div class="flex items-center gap-2">
+<div class="p-2 rounded-lg bg-gradient-to-br from-primary-blue to-primary-purple">
+<span class="material-icons text-white text-xl">security</span>
+</div>
+<span class="text-xl font-bold tracking-tight text-white">Covalent Admin</span>
+</div>
+<div class="flex items-center space-x-6">
+<div class="hidden md:flex items-center gap-4 text-sm font-medium text-slate-400">
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Node Active</span>
+</div>
+<div class="h-8 w-[1px] bg-white/10 hidden md:block"></div>
+<button class="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-xl">account_circle</span>
+<span class="text-sm font-medium">Administrator</span>
+</button>
+</div>
+</div>
+</div>
+</nav>
+<main class="max-w-3xl mx-auto px-4 py-12 space-y-8">
+<section class="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h2 class="text-2xl font-bold text-white mb-1">Aggregate Reveal Controls</h2>
+<p class="text-slate-400 text-sm">Select data parameters for cryptographic reveal</p>
+</div>
+<span class="material-symbols-outlined text-primary-blue text-3xl">analytics</span>
+</div>
+<div class="space-y-6">
+<div class="flex flex-col gap-4">
+<label class="text-sm font-semibold text-slate-300">Data Reveal Type</label>
+<div class="grid grid-cols-2 gap-4">
+<button class="flex items-center justify-between p-4 rounded-xl border-2 border-primary-blue bg-primary-blue/5 text-soft-white">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-blue">add</span>
+<span class="font-bold">Total Sum</span>
+</div>
+<span class="material-symbols-outlined text-primary-blue text-xl">check_circle</span>
+</button>
+<button class="flex items-center justify-between p-4 rounded-xl border border-white/10 hover:border-white/20 transition-all text-slate-400">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined">avg_time</span>
+<span class="font-bold">Average Donation</span>
+</div>
+<div class="w-5 h-5 rounded-full border border-white/20"></div>
+</button>
+</div>
+</div>
+<div class="pt-4">
+<button class="w-full gradient-btn glow-blue text-white font-extrabold py-5 px-8 rounded-2xl text-lg flex items-center justify-center gap-3">
+<span class="material-symbols-outlined">lock_open</span>
+                    Reveal Aggregate Total
+                </button>
+</div>
+<div class="flex items-start gap-3 p-4 bg-primary-blue/5 border border-primary-blue/20 rounded-xl">
+<span class="material-symbols-outlined text-primary-blue mt-0.5">info</span>
+<p class="text-xs text-slate-300 leading-relaxed">
+                    Revealing the total is a secure process that never exposes individual donor data. 
+                    The Fully Homomorphic Encryption layer ensures only the final sum is decrypted.
+                </p>
+</div>
+</div>
+</section>
+<section class="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-purple/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+<div class="flex items-center justify-between mb-8">
+<h2 class="text-2xl font-bold text-white">Reveal Results</h2>
+<div class="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20 text-xs font-bold uppercase tracking-wider">
+<span class="material-symbols-outlined text-xs">verified</span>
+                Decrypted
+            </div>
+</div>
+<div class="flex flex-col items-center justify-center py-6">
+<div class="flex items-baseline gap-4 mb-2">
+<span class="text-6xl font-black text-white tracking-tight">$145,200</span>
+<span class="material-symbols-outlined text-emerald-400 text-4xl">check_circle</span>
+</div>
+<p class="text-slate-400 terminal-text text-sm">Aggregate value calculated across 1,248 encrypted inputs</p>
+</div>
+</section>
+<section class="bg-lighter-slate p-8 rounded-2xl border border-white/5 card-shadow">
+<h2 class="text-xl font-bold text-white mb-6">Smart Contract Overview</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+<div class="space-y-2">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Contract Address</label>
+<div class="flex items-center justify-between bg-deep-slate p-3 rounded-lg border border-white/5">
+<code class="text-primary-blue terminal-text text-sm">0x7a25...f92d</code>
+<button class="text-slate-500 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Last Interaction</label>
+<div class="flex items-center gap-2 text-slate-300 font-medium p-3">
+<span class="material-symbols-outlined text-slate-500">schedule</span>
+                    2 minutes ago
+                </div>
+</div>
+</div>
+<div class="bg-deep-slate rounded-xl p-4 border border-white/5">
+<div class="flex items-center gap-2 mb-3 border-b border-white/5 pb-2">
+<div class="w-2 h-2 rounded-full bg-slate-600"></div>
+<div class="w-2 h-2 rounded-full bg-slate-600"></div>
+<div class="w-2 h-2 rounded-full bg-slate-600"></div>
+<span class="text-[10px] terminal-text text-slate-500 ml-2 uppercase">Execution Log</span>
+</div>
+<div class="space-y-1.5 terminal-text text-xs">
+<div class="flex gap-3">
+<span class="text-slate-600">[14:02:11]</span>
+<span class="text-emerald-400">Proof verified successfully</span>
+</div>
+<div class="flex gap-3">
+<span class="text-slate-600">[14:02:12]</span>
+<span class="text-primary-blue">Total calculated securely via FHE</span>
+</div>
+<div class="flex gap-3">
+<span class="text-slate-600">[14:02:12]</span>
+<span class="text-slate-400">Decryption key protocol initialized...</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<footer class="max-w-3xl mx-auto px-4 py-8 flex justify-between items-center text-slate-500 text-xs terminal-text">
+<div class="flex gap-4">
+<span>FHE_PROTOCOL_V2</span>
+<span>ID: COVALENT-ADMIN-01</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        Secure Environment
+    </div>
+</footer>
+
+</body></html>

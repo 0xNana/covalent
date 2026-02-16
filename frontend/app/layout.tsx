@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Manrope, JetBrains_Mono } from "next/font/google";
 import "./styles/globals.css";
-import Providers from "./providers";
-import Navbar from "./components/Navbar";
+import ClientShell from "./ClientShell";
 
-const inter = Inter({ subsets: ["latin"] });
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-display",
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
-  title: "Covalent - Confidential Donations",
-  description: "Privacy-preserving donation platform powered by Fully Homomorphic Encryption",
+  title: "Covalent | Privacy-First Donation Platform",
+  description:
+    "Donate anonymously to causes you believe in. Your contribution stays completely private — only you know how much you gave.",
 };
 
 export default function RootLayout({
@@ -17,12 +25,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} bg-gray-50 text-gray-900`}>
-        <Providers>
-          <Navbar />
-          <main>{children}</main>
-        </Providers>
+    <html lang="en" className="dark">
+      <head>
+        <link
+          href="https://fonts.googleapis.com/icon?family=Material+Icons"
+          rel="stylesheet"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          rel="stylesheet"
+        />
+        {/* Zama FHE SDK — loaded via CDN to avoid bundling 1.28 MB + WASM */}
+        <script
+          src="https://cdn.zama.org/relayer-sdk-js/0.4.0/relayer-sdk-js.umd.cjs"
+          type="text/javascript"
+        />
+      </head>
+      <body
+        className={`${manrope.variable} ${jetbrains.variable} font-display bg-deep-slate text-soft-white min-h-screen`}
+      >
+        <ClientShell>{children}</ClientShell>
       </body>
     </html>
   );

@@ -1,64 +1,110 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
-import { getFund, getEncryptedTotal } from "@/app/lib/contract";
+
+const SECONDS_PER_DAY = 86_400;
+const MS_PER_SECOND = 1_000;
+import {
+  getFund,
+  getEncryptedTotal,
+  getRevealedTotal,
+  isTokenRevealed,
+  type FundData,
+} from "@/app/lib/contract";
 import FundStats from "@/app/components/FundStats";
 import DonateCard from "@/app/components/DonateCard";
 
-interface FundData {
-  id: number;
-  title: string;
-  description: string;
-  recipient: string;
-  creator: string;
-  startTime: number;
-  endTime: number;
-  active: boolean;
-  donationCount: number;
+interface TokenStats {
+  encryptedTotalHex: string | null;
   revealedTotal: number;
   revealed: boolean;
 }
 
+type FundWithTokenStats = FundData & { tokenStats: TokenStats };
+
 export default function FundPage() {
   const params = useParams();
-  const fundId = params?.id as string;
+  const fundId = typeof params?.id === "string" ? params.id : undefined;
 
-  const [fund, setFund] = useState<FundData | null>(null);
-  const [encryptedTotal, setEncryptedTotal] = useState<string | null>(null);
+  const [fund, setFund] = useState<FundWithTokenStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
 
   const loadFundData = useCallback(async () => {
     if (!fundId) return;
     try {
       setLoading(true);
-      const fundData = await getFund(parseInt(fundId, 10));
-      setFund(fundData);
+      const parsedId = parseInt(fundId, 10);
+      if (isNaN(parsedId) || parsedId < 1) {
+        setError("Invalid fund ID");
+        return;
+      }
 
-      const total = await getEncryptedTotal(parseInt(fundId, 10));
-      setEncryptedTotal(total);
+      const fundData = await getFund(parsedId);
+
+      // Fetch per-token stats (default token = cUSDT)
+      let tokenStats: TokenStats = {
+        encryptedTotalHex: null,
+        revealedTotal: 0,
+        revealed: false,
+      };
+
+      try {
+        const [total, revealed, revealedTotal] = await Promise.all([
+          getEncryptedTotal(parsedId),
+          isTokenRevealed(parsedId),
+          getRevealedTotal(parsedId),
+        ]);
+        tokenStats = {
+          encryptedTotalHex: total,
+          revealedTotal,
+          revealed,
+        };
+      } catch {
+        // Token stats may fail if no donations yet — not critical
+      }
+
+      if (mountedRef.current) {
+        setFund({ ...fundData, tokenStats });
+      }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to load fund";
-      setError(message);
+      if (mountedRef.current) {
+        const message = err instanceof Error ? err.message : "Failed to load fund";
+        setError(message);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [fundId]);
 
   useEffect(() => {
+    mountedRef.current = true;
     loadFundData();
+    return () => {
+      mountedRef.current = false;
+    };
   }, [loadFundData]);
+
+  if (!fundId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-xl max-w-md">
+          Missing fund ID
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <svg className="animate-spin h-8 w-8 mx-auto text-indigo-600" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <p className="mt-2 text-gray-600">Loading fund information...</p>
+          <div className="w-8 h-8 border-2 border-primary-blue border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="mt-4 text-slate-400">Loading fund information...</p>
         </div>
       </div>
     );
@@ -66,102 +112,125 @@ export default function FundPage() {
 
   if (error || !fund) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg max-w-md">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-xl max-w-md">
           {error || "Fund not found"}
         </div>
       </div>
     );
   }
 
-  const isActive = fund.active && Date.now() / 1000 >= fund.startTime && Date.now() / 1000 <= fund.endTime;
-  const hasStarted = Date.now() / 1000 >= fund.startTime;
+  const nowSec = Math.floor(Date.now() / MS_PER_SECOND);
+  const isActive = fund.active && nowSec >= fund.startTime && nowSec <= fund.endTime;
+  const hasStarted = nowSec >= fund.startTime;
+  const daysLeft = Math.max(0, Math.ceil((fund.endTime - nowSec) / SECONDS_PER_DAY));
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-gray-900">{fund.title}</h1>
-            <span
-              className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                isActive
-                  ? "bg-green-100 text-green-800"
-                  : !hasStarted
-                    ? "bg-amber-100 text-amber-800"
-                    : "bg-gray-100 text-gray-800"
-              }`}
-            >
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
+      {/* Header */}
+      <div className="mb-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h1 className="text-4xl font-extrabold text-white mb-2">
+              {fund.title ?? `Fund #${fund.id}`}
+            </h1>
+            {fund.description && (
+              <p className="text-slate-400">{fund.description}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold ${
+              isActive
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                : !hasStarted
+                  ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                  : "bg-slate-500/10 border-slate-500/20 text-slate-400"
+            }`}>
+              <span className="material-icons text-sm">
+                {isActive ? "radio_button_checked" : !hasStarted ? "schedule" : "check_circle"}
+              </span>
               {isActive ? "Active" : !hasStarted ? "Upcoming" : "Ended"}
-            </span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full">
+              <span className="material-icons text-primary-purple text-sm">lock</span>
+              <span className="text-sm font-semibold text-slate-300">Private Fund</span>
+            </div>
           </div>
-          <p className="text-gray-600">{fund.description}</p>
         </div>
+      </div>
 
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Fund Details</h2>
-            <dl className="space-y-3">
-              <div>
-                <dt className="text-sm text-gray-500">Recipient</dt>
-                <dd className="text-sm font-mono text-gray-900 truncate">{fund.recipient}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-gray-500">Start Date</dt>
-                <dd className="text-sm text-gray-900">
-                  {new Date(fund.startTime * 1000).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm text-gray-500">End Date</dt>
-                <dd className="text-sm text-gray-900">
-                  {new Date(fund.endTime * 1000).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm text-gray-500">Creator</dt>
-                <dd className="text-sm font-mono text-gray-900 truncate">{fund.creator}</dd>
-              </div>
-            </dl>
-          </div>
-
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        {/* Left: Fund overview */}
+        <div className="space-y-8">
           <FundStats
-            encryptedTotal={encryptedTotal}
+            encryptedTotal={fund.tokenStats.encryptedTotalHex}
             donationCount={fund.donationCount}
-            revealedTotal={fund.revealedTotal}
-            revealed={fund.revealed}
+            revealedTotal={fund.tokenStats.revealedTotal}
+            revealed={fund.tokenStats.revealed}
           />
+
+          {/* Fund details card */}
+          <div className="bg-lighter-slate rounded-2xl p-8 border border-white/5 card-shadow">
+            <h3 className="text-lg font-bold text-white mb-6">Fund Details</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Recipient</span>
+                <span className="font-mono text-sm text-slate-300 truncate ml-4 max-w-[200px]">
+                  {fund.recipient}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Creator</span>
+                <span className="font-mono text-sm text-slate-300 truncate ml-4 max-w-[200px]">
+                  {fund.creator}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Start Date</span>
+                <span className="text-sm text-slate-300">
+                  {new Date(fund.startTime * 1000).toLocaleDateString("en-US", {
+                    month: "short", day: "numeric", year: "numeric",
+                  })}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">End Date</span>
+                <span className="text-sm text-slate-300">
+                  {new Date(fund.endTime * 1000).toLocaleDateString("en-US", {
+                    month: "short", day: "numeric", year: "numeric",
+                  })}
+                </span>
+              </div>
+              {isActive && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400 text-sm">Time Left</span>
+                  <span className="text-sm font-bold text-white">{daysLeft} Days</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {isActive && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Make a Donation</h2>
-            <DonateCard fundId={fundId} onDonationComplete={loadFundData} />
+        {/* Right: Donate form */}
+        {isActive ? (
+          <DonateCard fundId={fundId} onDonationComplete={loadFundData} />
+        ) : !hasStarted ? (
+          <div className="bg-lighter-slate rounded-2xl p-8 border border-amber-500/20 card-shadow text-center">
+            <span className="material-icons text-amber-400 text-4xl mb-4">schedule</span>
+            <h3 className="text-xl font-bold text-white mb-2">Fund Not Started</h3>
+            <p className="text-slate-400">
+              Donations open on{" "}
+              {new Date(fund.startTime * 1000).toLocaleDateString("en-US", {
+                month: "long", day: "numeric", year: "numeric",
+              })}
+            </p>
           </div>
-        )}
-
-        {!isActive && !hasStarted && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-lg text-center">
-            This fund has not started yet. Donations open on{" "}
-            {new Date(fund.startTime * 1000).toLocaleDateString()}.
-          </div>
-        )}
-
-        {!isActive && hasStarted && (
-          <div className="bg-gray-50 border border-gray-200 text-gray-600 px-6 py-4 rounded-lg text-center">
-            This fund is no longer accepting donations.
+        ) : (
+          <div className="bg-lighter-slate rounded-2xl p-8 border border-white/5 card-shadow text-center">
+            <span className="material-icons text-slate-500 text-4xl mb-4">check_circle</span>
+            <h3 className="text-xl font-bold text-white mb-2">Fund Closed</h3>
+            <p className="text-slate-400">This fund is no longer accepting donations.</p>
           </div>
         )}
       </div>
