@@ -2,6 +2,8 @@
 node_modules/
 package-lock.json
 yarn.lock
+# Keep frontend lockfile for reproducible CI installs
+!frontend/package-lock.json
 
 # Environment variables (all .env files)
 .env
