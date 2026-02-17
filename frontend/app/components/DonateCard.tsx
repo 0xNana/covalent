@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { encryptAndDonate } from "@/app/lib/encryption";
+import { getCUsdtBalanceHandle } from "@/app/lib/contract";
 
 interface DonateCardProps {
   fundId: string;
@@ -28,13 +29,40 @@ export default function DonateCard({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>("");
+  const [useExistingCUsdt, setUseExistingCUsdt] = useState(false);
+  const [hasCUsdtBalance, setHasCUsdtBalance] = useState(false);
+
+  // Check if user has cUSDT balance
+  useEffect(() => {
+    const checkBalance = async () => {
+      if (!address || !isConnected) {
+        setHasCUsdtBalance(false);
+        return;
+      }
+      try {
+        const handle = await getCUsdtBalanceHandle(address);
+        setHasCUsdtBalance(handle !== null);
+      } catch {
+        setHasCUsdtBalance(false);
+      }
+    };
+    checkBalance();
+  }, [address, isConnected]);
 
   const getStepIndex = (step: string): number => {
-    if (step.includes("allowance") || step.includes("Approving")) return 0;
-    if (step.includes("Wrapping")) return 1;
-    if (step.includes("Encrypting")) return 2;
-    if (step.includes("Submitting")) return 3;
-    return -1;
+    if (useExistingCUsdt) {
+      // Simplified steps when using existing cUSDT: encrypt -> 0, donate -> 1
+      if (step.includes("Encrypting")) return 0;
+      if (step.includes("Submitting")) return 1;
+      return -1;
+    } else {
+      // Full steps when wrapping USDT: approve -> 0, wrap -> 1, encrypt -> 2, donate -> 3
+      if (step.includes("allowance") || step.includes("Approving")) return 0;
+      if (step.includes("Wrapping")) return 1;
+      if (step.includes("Encrypting")) return 2;
+      if (step.includes("Submitting")) return 3;
+      return -1;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,6 +97,7 @@ export default function DonateCard({
         (step) => {
           setCurrentStep(step);
         },
+        useExistingCUsdt,
       );
       setSuccess(true);
       setAmount("");
@@ -102,7 +131,7 @@ export default function DonateCard({
             Amount (USDT)
           </label>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-brand-muted">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-brand-muted pointer-events-none z-10">
               $
             </span>
             <input
@@ -111,7 +140,7 @@ export default function DonateCard({
               step="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="input-field pl-9 pr-16 text-2xl font-bold h-14"
+              className="input-field pl-11 pr-16 text-2xl font-bold h-14"
               placeholder="0"
               disabled={loading || !isConnected}
               required
@@ -141,6 +170,31 @@ export default function DonateCard({
           ))}
         </div>
 
+        {/* Toggle: Use existing cUSDT balance */}
+        {hasCUsdtBalance && (
+          <div className="bg-gray-50 rounded-lg p-4 border border-brand-border">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useExistingCUsdt}
+                onChange={(e) => setUseExistingCUsdt(e.target.checked)}
+                disabled={loading}
+                className="w-5 h-5 rounded border-brand-border text-brand-green focus:ring-brand-green focus:ring-2"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-brand-dark">
+                  Use my private balance (cUSDT)
+                </p>
+                <p className="text-xs text-brand-muted mt-0.5">
+                  {useExistingCUsdt
+                    ? "Donating directly from your encrypted cUSDT balance"
+                    : "Wrap USDT to cUSDT first, then donate"}
+                </p>
+              </div>
+            </label>
+          </div>
+        )}
+
         {/* Privacy indicator */}
         {amount && !isNaN(Number(amount)) && Number(amount) > 0 && (
           <div className="bg-brand-green-light rounded-lg px-4 py-3 flex items-center gap-3">
@@ -162,32 +216,46 @@ export default function DonateCard({
         {loading && (
           <div className="bg-gray-50 p-4 rounded-lg border border-brand-border">
             <div className="flex items-center justify-between mb-3">
-              {STEPS.map((step, i) => (
-                <div key={step.id} className="flex items-center gap-1">
-                  <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                      i < activeStepIndex
-                        ? "bg-brand-green text-white"
-                        : i === activeStepIndex
-                          ? "bg-brand-green text-white animate-pulse"
-                          : "bg-gray-200 text-brand-muted"
-                    }`}
-                  >
-                    {i < activeStepIndex ? (
-                      <span className="material-icons text-xs">check</span>
-                    ) : (
-                      i + 1
+              {STEPS.map((step, i) => {
+                // Skip approve and wrap steps if using existing cUSDT
+                if (useExistingCUsdt && (i === 0 || i === 1)) {
+                  return null;
+                }
+                
+                // When using existing cUSDT, map step indices: encrypt (i=2) -> display 0, donate (i=3) -> display 1
+                // When wrapping USDT, use original indices: approve (i=0) -> display 0, wrap (i=1) -> display 1, etc.
+                const stepIndex = useExistingCUsdt ? i - 2 : i;
+                
+                const isActive = stepIndex === activeStepIndex;
+                const isCompleted = stepIndex < activeStepIndex;
+                
+                return (
+                  <div key={step.id} className="flex items-center gap-1">
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                        isCompleted
+                          ? "bg-brand-green text-white"
+                          : isActive
+                            ? "bg-brand-green text-white animate-pulse"
+                            : "bg-gray-200 text-brand-muted"
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <span className="material-icons text-xs">check</span>
+                      ) : (
+                        stepIndex + 1
+                      )}
+                    </div>
+                    {i < STEPS.length - 1 && !(useExistingCUsdt && i === 1) && (
+                      <div
+                        className={`w-8 h-0.5 ${
+                          isCompleted ? "bg-brand-green" : "bg-gray-200"
+                        }`}
+                      />
                     )}
                   </div>
-                  {i < STEPS.length - 1 && (
-                    <div
-                      className={`w-8 h-0.5 ${
-                        i < activeStepIndex ? "bg-brand-green" : "bg-gray-200"
-                      }`}
-                    />
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="flex items-center justify-center gap-2">
               <div className="w-4 h-4 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />

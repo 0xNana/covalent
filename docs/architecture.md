@@ -256,7 +256,7 @@ The following components are designed but not implemented in the MVP:
 
 ### Smart Contracts
 - **Language**: Solidity 0.8.27
-- **FHE Library**: @fhevm/solidity ^0.10.0
+- **FHE Library**: @fhevm/solidity 0.9.1
 - **Confidential Tokens**: @openzeppelin/confidential-contracts ^0.3.1 (ERC-7984)
 - **Access Control**: OpenZeppelin Ownable + ReentrancyGuard
 - **Framework**: Hardhat + @fhevm/hardhat-plugin ^0.4.0

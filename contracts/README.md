@@ -23,14 +23,34 @@ For detailed instructions see:
 
 2. **Set up environment variables**
 
+   You can use either method:
+
+   **Option A: Using `.env` file (recommended)**
+   
+   ```bash
+   # Copy the example file
+   cp .env.example .env
+   
+   # Edit .env and add your values:
+   # MNEMONIC=your twelve word mnemonic phrase here
+   # INFURA_API_KEY=your_infura_api_key_here
+   # ETHERSCAN_API_KEY=your_etherscan_api_key_here (optional)
+   ```
+
+   **Option B: Using Hardhat vars system**
+   
    ```bash
    npx hardhat vars set MNEMONIC
-
-   # Set your Infura API key for network access
    npx hardhat vars set INFURA_API_KEY
+   npx hardhat vars set ETHERSCAN_API_KEY  # optional
+   ```
 
-   # Optional: Set Etherscan API key for contract verification
-   npx hardhat vars set ETHERSCAN_API_KEY
+   **Option C: Using environment variables**
+   
+   ```bash
+   export HARDHAT_VAR_MNEMONIC="your twelve word mnemonic phrase here"
+   export HARDHAT_VAR_INFURA_API_KEY="your_infura_api_key_here"
+   export HARDHAT_VAR_ETHERSCAN_API_KEY="your_etherscan_api_key_here"  # optional
    ```
 
 3. **Compile and test**
@@ -68,7 +88,7 @@ For detailed instructions see:
 ## 📁 Project Structure
 
 ```
-fhevm-hardhat-template/
+contracts
 ├── contracts/           # Smart contract source files
 │   └── FHECounter.sol   # Example FHE counter contract
 ├── deploy/              # Deployment scripts

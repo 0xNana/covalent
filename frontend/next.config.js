@@ -1,3 +1,4 @@
+const path = require("path");
 const webpack = require("webpack");
 
 /** @type {import('next').NextConfig} */
@@ -5,7 +6,9 @@ const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["@zama-fhe/relayer-sdk"],
 
-  // Turbopack config (used by `next dev --turbopack`).
+  
+  outputFileTracingRoot: path.join(__dirname),
+
   turbopack: {
     resolveAlias: {
       "@react-native-async-storage/async-storage": { browser: "" },
@@ -16,7 +19,6 @@ const nextConfig = {
     },
   },
 
-  // Webpack config (used by `next build`).
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -28,7 +30,6 @@ const nextConfig = {
       };
     }
 
-    // Ignore React Native packages that MetaMask SDK optionally imports
     config.plugins.push(
       new webpack.IgnorePlugin({
         resourceRegExp: /^@react-native-async-storage\/async-storage$/,

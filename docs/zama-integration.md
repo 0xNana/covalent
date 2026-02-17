@@ -368,7 +368,7 @@ The FHEVM mock environment processes FHE operations synchronously and determinis
 
 | Component | Version | Notes |
 |-----------|---------|-------|
-| @fhevm/solidity | ^0.10.0 | Smart contract FHE library |
+| @fhevm/solidity | 0.9.1 | Smart contract FHE library |
 | @fhevm/hardhat-plugin | ^0.4.0 | Hardhat integration + mock |
 | @zama-fhe/relayer-sdk | ^0.4.0 | Client-side encryption (replaces @fhevm/js) |
 | @fhevm/mock-utils | ^0.4.0 | Testing utilities |

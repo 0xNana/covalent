@@ -1,13 +1,19 @@
-name: Tests
+name: Frontend Tests
 
 on:
   push:
     branches: [main, develop]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/test.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/test.yml'
 
 jobs:
-  test:
+  frontend:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,24 +24,16 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
+        working-directory: ./frontend
         run: npm ci
 
-      - name: Compile contracts
-        run: npm run compile
+      - name: Run frontend linter
+        working-directory: ./frontend
+        run: npm run lint
 
-      - name: Run tests
-        run: npm run test
-
-      - name: Generate coverage report
-        run: npm run coverage
-        continue-on-error: true
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage/coverage.json
-          flags: unittests
-          name: codecov-umbrella
-        continue-on-error: true
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build

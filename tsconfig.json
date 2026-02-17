@@ -11,7 +11,7 @@
     "moduleResolution": "node"
   },
   "references": [
-    { "path": "./fhevm-hardhat-template" },
+    { "path": "./contracts" },
     { "path": "./frontend" }
   ],
   "include": [],

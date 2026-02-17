@@ -47,9 +47,11 @@ const CUSDT_ABI = [
   "function unwrap(address from, address to, bytes32 encryptedAmount, bytes inputProof) external",
   "function finalizeUnwrap(bytes32 burntAmount, uint64 burntAmountCleartext, bytes decryptionProof) external",
   "function confidentialTransferAndCall(address to, bytes32 encryptedAmount, bytes inputProof, bytes data) external returns (bytes32)",
+  "function confidentialBalanceOf(address account) external view returns (bytes32)",
   "function underlying() external view returns (address)",
   "function rate() external view returns (uint256)",
   "function decimals() external view returns (uint8)",
+  "event UnwrapRequested(address indexed receiver, bytes32 amount)",
 ];
 
 // ---------------------------------------------------------------------------
@@ -67,6 +69,9 @@ if (typeof window !== "undefined") {
   }
   if (!CUSDT_ADDRESS) {
     console.warn("[Covalent] NEXT_PUBLIC_CUSDT_ADDRESS is not set.");
+  }
+  if (!USDT_ADDRESS) {
+    console.warn("[Covalent] NEXT_PUBLIC_USDT_ADDRESS is not set.");
   }
 }
 
@@ -158,22 +163,97 @@ export function getUsdtAddress(): string {
 
 export async function getUsdtBalance(address: string): Promise<bigint> {
   const provider = getProvider();
-  const usdt = new ethers.Contract(getUsdtAddress(), ERC20_ABI, provider);
-  return await usdt.balanceOf(address);
+  const usdtAddress = getUsdtAddress();
+  
+  // Validate that the contract has code deployed
+  const code = await provider.getCode(usdtAddress);
+  if (!code || code === "0x") {
+    throw new Error(
+      `No contract found at USDT address ${usdtAddress}. ` +
+      `Please check NEXT_PUBLIC_USDT_ADDRESS in your .env.local file. ` +
+      `Make sure you're connected to the correct network.`
+    );
+  }
+  
+  const usdt = new ethers.Contract(usdtAddress, ERC20_ABI, provider);
+  
+  try {
+    return await usdt.balanceOf(address);
+  } catch (error: any) {
+    const errorMessage = error?.message || String(error);
+    if (errorMessage.includes("BAD_DATA") || errorMessage.includes("could not decode")) {
+      throw new Error(
+        `Failed to call balanceOf on USDT contract at ${usdtAddress}. ` +
+        `The contract may not be an ERC-20 token or may not be deployed on this network. ` +
+        `Original error: ${errorMessage}`
+      );
+    }
+    throw error;
+  }
 }
 
 export async function getUsdtAllowance(owner: string, spender: string): Promise<bigint> {
   const provider = getProvider();
-  const usdt = new ethers.Contract(getUsdtAddress(), ERC20_ABI, provider);
-  return await usdt.allowance(owner, spender);
+  const usdtAddress = getUsdtAddress();
+  
+  // Validate that the contract has code deployed
+  const code = await provider.getCode(usdtAddress);
+  if (!code || code === "0x") {
+    throw new Error(
+      `No contract found at USDT address ${usdtAddress}. ` +
+      `Please check NEXT_PUBLIC_USDT_ADDRESS in your .env.local file. ` +
+      `Make sure you're connected to the correct network.`
+    );
+  }
+  
+  const usdt = new ethers.Contract(usdtAddress, ERC20_ABI, provider);
+  
+  try {
+    return await usdt.allowance(owner, spender);
+  } catch (error: any) {
+    const errorMessage = error?.message || String(error);
+    if (errorMessage.includes("BAD_DATA") || errorMessage.includes("could not decode")) {
+      throw new Error(
+        `Failed to call allowance on USDT contract at ${usdtAddress}. ` +
+        `The contract may not be an ERC-20 token or may not be deployed on this network. ` +
+        `Original error: ${errorMessage}`
+      );
+    }
+    throw error;
+  }
 }
 
 export async function approveUsdt(spender: string, amount: bigint): Promise<void> {
   const provider = getProvider();
+  const usdtAddress = getUsdtAddress();
+  
+  // Validate that the contract has code deployed
+  const code = await provider.getCode(usdtAddress);
+  if (!code || code === "0x") {
+    throw new Error(
+      `No contract found at USDT address ${usdtAddress}. ` +
+      `Please check NEXT_PUBLIC_USDT_ADDRESS in your .env.local file. ` +
+      `Make sure you're connected to the correct network.`
+    );
+  }
+  
   const signer = await provider.getSigner();
-  const usdt = new ethers.Contract(getUsdtAddress(), ERC20_ABI, signer);
-  const tx = await usdt.approve(spender, amount);
-  await tx.wait();
+  const usdt = new ethers.Contract(usdtAddress, ERC20_ABI, signer);
+  
+  try {
+    const tx = await usdt.approve(spender, amount);
+    await tx.wait();
+  } catch (error: any) {
+    const errorMessage = error?.message || String(error);
+    if (errorMessage.includes("BAD_DATA") || errorMessage.includes("could not decode")) {
+      throw new Error(
+        `Failed to call approve on USDT contract at ${usdtAddress}. ` +
+        `The contract may not be an ERC-20 token or may not be deployed on this network. ` +
+        `Original error: ${errorMessage}`
+      );
+    }
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -189,6 +269,48 @@ export async function getCUsdtInferredBalance(address: string): Promise<bigint> 
   return await cUsdt.inferredTotalSupply().catch(() => BigInt(0));
 }
 
+/**
+ * Get the encrypted balance handle (bytes32) for a user's cUSDT balance.
+ * This handle can be decrypted using userDecrypt with a signature.
+ */
+export async function getCUsdtBalanceHandle(address: string): Promise<string | null> {
+  const provider = getProvider();
+  const cUsdtAddress = getCUsdtAddress();
+  const cUsdt = new ethers.Contract(cUsdtAddress, CUSDT_ABI, provider);
+  
+  try {
+    // confidentialBalanceOf returns euint64, which ethers decodes as bytes32 (the underlying type)
+    const handle = await cUsdt.confidentialBalanceOf(address);
+    
+    // Handle can be null/zero if balance is 0 or not initialized
+    // euint64.unwrap() returns bytes32, and ethers should decode it as a string
+    if (!handle || 
+        handle === ethers.ZeroHash || 
+        handle === "0x0000000000000000000000000000000000000000000000000000000000000000" ||
+        handle === "0x") {
+      return null;
+    }
+    
+    // Ensure handle is a valid bytes32 string
+    if (typeof handle !== "string" || !handle.startsWith("0x") || handle.length !== 66) {
+      console.warn(`Unexpected handle format: ${handle}`);
+      return null;
+    }
+    
+    return handle;
+  } catch (error: any) {
+    const errorMessage = error?.message || String(error);
+    // If balance is not initialized, contract might revert - return null
+    if (errorMessage.includes("not initialized") || 
+        errorMessage.includes("ZeroBalance") ||
+        errorMessage.includes("BAD_DATA") ||
+        errorMessage.includes("could not decode")) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function wrapUsdtToCUsdt(to: string, amount: bigint): Promise<void> {
   const provider = getProvider();
   const signer = await provider.getSigner();
@@ -199,19 +321,64 @@ export async function wrapUsdtToCUsdt(to: string, amount: bigint): Promise<void>
 
 /**
  * Unwrap cUSDT back to USDT (step 1 of 2).
- * Burns the encrypted cUSDT and requests decryption.
- * Must be followed by `finalizeUnwrap()` after the relayer decrypts.
+ * Burns the encrypted cUSDT, emits UnwrapRequested with the on-chain burnt amount handle.
+ * Caller must then decrypt that handle and call finalizeUnwrapCUsdt to receive USDT.
+ * @returns The transaction receipt (use parseBurntAmountHandleFromUnwrapReceipt to get the handle for decryption + finalize).
  */
 export async function unwrapCUsdt(
   from: string,
   to: string,
   handle: Uint8Array,
   inputProof: Uint8Array,
+): Promise<ethers.TransactionReceipt | null> {
+  const provider = getProvider();
+  const signer = await provider.getSigner();
+  const cUsdt = new ethers.Contract(getCUsdtAddress(), CUSDT_ABI, signer);
+  const tx = await cUsdt.unwrap(from, to, handle, inputProof, { gasLimit: 5_000_000 });
+  const receipt = await tx.wait();
+  return receipt;
+}
+
+/**
+ * Parse the UnwrapRequested event from an unwrap() transaction receipt.
+ * The emitted handle is the on-chain burnt amount (must be used for publicDecrypt and finalizeUnwrap).
+ */
+export function parseBurntAmountHandleFromUnwrapReceipt(
+  cUsdtAddress: string,
+  receipt: ethers.TransactionReceipt | null,
+): string | null {
+  if (!receipt || !receipt.logs?.length) return null;
+  const cUsdtInterface = new ethers.Interface(CUSDT_ABI);
+  const unwrapTopic = cUsdtInterface.getEvent("UnwrapRequested")?.topicHash;
+  if (!unwrapTopic) return null;
+  const log = receipt.logs.find((l) => l.topics[0] === unwrapTopic);
+  if (!log) return null;
+  const parsed = cUsdtInterface.parseLog({ topics: log.topics as string[], data: log.data });
+  if (!parsed || parsed.name !== "UnwrapRequested") return null;
+  const amount = parsed.args?.amount ?? parsed.args?.[1];
+  if (typeof amount !== "string" || !amount.startsWith("0x")) return null;
+  return amount;
+}
+
+/**
+ * Finalize unwrap (step 2 of 2). Call after unwrap() and publicDecrypt of the burnt amount handle.
+ * Transfers the underlying USDT to the recipient stored in the unwrap request.
+ */
+export async function finalizeUnwrapCUsdt(
+  burntAmountHandle: string,
+  burntAmountCleartext: number,
+  decryptionProof: string | Uint8Array,
 ): Promise<void> {
   const provider = getProvider();
   const signer = await provider.getSigner();
   const cUsdt = new ethers.Contract(getCUsdtAddress(), CUSDT_ABI, signer);
-  const tx = await cUsdt.unwrap(from, to, handle, inputProof);
+  const proofBytes =
+    typeof decryptionProof === "string"
+      ? decryptionProof
+      : ethers.hexlify(decryptionProof instanceof Uint8Array ? decryptionProof : new Uint8Array(decryptionProof));
+  const tx = await cUsdt.finalizeUnwrap(burntAmountHandle, burntAmountCleartext, proofBytes, {
+    gasLimit: 5_000_000,
+  });
   await tx.wait();
 }
 

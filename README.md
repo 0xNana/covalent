@@ -75,7 +75,7 @@ FHECounter (3 tests)                ✔ reference implementation
 
 ```
 covalent/
-├── fhevm-hardhat-template/           # Hardhat project (FHEVM toolchain)
+├── contracts/                         # Hardhat project (FHEVM toolchain)
 │   ├── contracts/
 │   │   ├── CovalentFund.sol          # Main contract — IERC7984Receiver, euint64
 │   │   ├── ConfidentialUSDT.sol      # ERC7984ERC20Wrapper wrapping MockUSDT
@@ -112,6 +112,12 @@ covalent/
 │   │   │   └── encryption.ts         # Encrypt-and-donate orchestration
 │   │   └── pages/                    # Page components (fund, admin, create)
 │   └── package.json
+├── scripts/                           # Utility scripts
+│   ├── generate-address.ts           # Generate addresses from mnemonic and fund with ETH
+│   ├── claim-faucet.ts              # Claim test USDT from faucet
+│   ├── create-fund.ts               # Create a new donation fund
+│   ├── donate.ts                    # Make a confidential donation
+│   └── README.md                     # Scripts documentation
 ├── docs/                              # Project documentation
 │   ├── architecture.md
 │   ├── covalent-srs.md
@@ -138,7 +144,7 @@ git clone https://github.com/0xNana/covalent.git
 cd covalent
 
 # Install smart contract dependencies
-cd fhevm-hardhat-template
+cd contracts
 npm install
 
 # Compile contracts
@@ -157,7 +163,7 @@ npx hardhat test
 #   ETHERSCAN_API_KEY=YOUR_KEY
 
 # Deploy all contracts (MockUSDT → ConfidentialUSDT → CovalentFund + whitelist)
-cd fhevm-hardhat-template
+cd contracts
 npx hardhat deploy --network sepolia --tags CovalentFund
 
 # Copy the printed addresses into .env.local:
@@ -224,7 +230,7 @@ function onConfidentialTransferReceived(
 
 | Layer | Technology |
 |-------|-----------|
-| Smart Contracts | Solidity 0.8.27, @fhevm/solidity ^0.10.0, @openzeppelin/confidential-contracts ^0.3.1, OpenZeppelin Contracts |
+| Smart Contracts | Solidity 0.8.27, @fhevm/solidity 0.9.1, @openzeppelin/confidential-contracts ^0.3.1, OpenZeppelin Contracts |
 | Token Standard | ERC-7984 (Confidential Tokens), ERC-20, ERC7984ERC20Wrapper |
 | FHE Runtime | Zama FHEVM (hardhat mock for local, Sepolia for testnet) |
 | Testing | Mocha, Chai, @fhevm/hardhat-plugin ^0.4.0 |

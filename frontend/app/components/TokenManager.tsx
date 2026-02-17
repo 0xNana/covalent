@@ -8,9 +8,13 @@ import {
   approveUsdt,
   wrapUsdtToCUsdt,
   unwrapCUsdt,
+  finalizeUnwrapCUsdt,
+  parseBurntAmountHandleFromUnwrapReceipt,
   getCUsdtAddress,
+  getCUsdtBalanceHandle,
 } from "@/app/lib/contract";
-import { encryptDonationAmount } from "@/app/lib/fheClient";
+import { encryptDonationAmount, initFHEVM, decryptUserBalance, publicDecryptUnwrapHandle } from "@/app/lib/fheClient";
+import { ethers } from "ethers";
 
 const USDT_DECIMALS = 6;
 
@@ -19,6 +23,8 @@ type Tab = "wrap" | "unwrap";
 interface BalanceInfo {
   usdt: bigint;
   allowance: bigint;
+  cUsdtHandle: string | null;
+  cUsdtDecrypted: bigint | null;
 }
 
 export default function TokenManager() {
@@ -29,11 +35,14 @@ export default function TokenManager() {
   const [balances, setBalances] = useState<BalanceInfo>({
     usdt: BigInt(0),
     allowance: BigInt(0),
+    cUsdtHandle: null,
+    cUsdtDecrypted: null,
   });
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [decryptingBalance, setDecryptingBalance] = useState(false);
 
   const addressesConfigured = Boolean(
     process.env.NEXT_PUBLIC_USDT_ADDRESS &&
@@ -43,15 +52,59 @@ export default function TokenManager() {
   const fetchBalances = useCallback(async () => {
     if (!address || !addressesConfigured) return;
     try {
-      const [usdt, allowance] = await Promise.all([
+      const [usdt, allowance, cUsdtHandle] = await Promise.all([
         getUsdtBalance(address),
         getUsdtAllowance(address, getCUsdtAddress()),
+        getCUsdtBalanceHandle(address).catch(() => null),
       ]);
-      setBalances({ usdt, allowance });
+      setBalances((prev) => ({
+        ...prev,
+        usdt,
+        allowance,
+        cUsdtHandle,
+        // Don't reset decrypted balance - keep it until user explicitly decrypts again
+      }));
     } catch {
       // silently fail — balances show 0
     }
   }, [address, addressesConfigured]);
+
+  const handleDecryptBalance = useCallback(async () => {
+    if (!address || !balances.cUsdtHandle || !addressesConfigured) return;
+    
+    setDecryptingBalance(true);
+    setError(null);
+    
+    try {
+      // Initialize FHEVM if needed
+      await initFHEVM();
+      
+      // Get signer for decryption signature
+      if (typeof window === "undefined" || !window.ethereum) {
+        throw new Error("No wallet detected");
+      }
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      // Decrypt the balance
+      const decrypted = await decryptUserBalance(
+        balances.cUsdtHandle!,
+        getCUsdtAddress(),
+        address,
+        signer
+      );
+      
+      setBalances((prev) => ({
+        ...prev,
+        cUsdtDecrypted: decrypted,
+      }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to decrypt balance";
+      setError(msg);
+    } finally {
+      setDecryptingBalance(false);
+    }
+  }, [address, balances.cUsdtHandle, addressesConfigured]);
 
   useEffect(() => {
     if (isConnected) fetchBalances();
@@ -92,6 +145,8 @@ export default function TokenManager() {
       setSuccess(`Converted ${amount} USDT to private tokens`);
       setAmount("");
       await fetchBalances();
+      // Reset decrypted balance so user can decrypt again to see updated balance
+      setBalances((prev) => ({ ...prev, cUsdtDecrypted: null }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Conversion failed";
       setError(msg);
@@ -111,6 +166,9 @@ export default function TokenManager() {
     setSuccess(null);
 
     try {
+      setStep("Initializing encryption...");
+      await initFHEVM();
+
       setStep("Preparing withdrawal...");
       const { handle, inputProof } = await encryptDonationAmount(
         getCUsdtAddress(),
@@ -118,12 +176,23 @@ export default function TokenManager() {
         raw,
       );
 
-      setStep("Converting back to USDT...");
-      await unwrapCUsdt(address, address, handle, inputProof);
+      setStep("Converting cUSDT to USDT (step 1/2)...");
+      const receipt = await unwrapCUsdt(address, address, handle, inputProof);
+      const burntAmountHandle = parseBurntAmountHandleFromUnwrapReceipt(getCUsdtAddress(), receipt);
+      if (!burntAmountHandle) {
+        throw new Error("Could not read unwrap request from transaction. Please try again.");
+      }
 
-      setSuccess(`Withdrawal initiated for ${amount} USDT.`);
+      setStep("Decrypting amount (step 2/2)...");
+      const { decryptedValue, decryptionProof } = await publicDecryptUnwrapHandle(burntAmountHandle);
+
+      setStep("Finalizing withdrawal...");
+      await finalizeUnwrapCUsdt(burntAmountHandle, Number(decryptedValue), decryptionProof);
+
+      setSuccess(`Withdrew ${amount} USDT to your wallet.`);
       setAmount("");
       await fetchBalances();
+      setBalances((prev) => ({ ...prev, cUsdtDecrypted: null }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Withdrawal failed";
       setError(msg);
@@ -162,11 +231,26 @@ export default function TokenManager() {
         </div>
         <div className="bg-brand-green-light rounded-lg p-4 border border-green-200">
           <p className="text-xs font-semibold text-brand-green uppercase tracking-wide mb-1">
-            Private Balance
+            Private Balance (cUSDT)
           </p>
-          <p className="text-xl font-bold text-brand-green font-mono">
-            Hidden
-          </p>
+          {balances.cUsdtDecrypted !== null ? (
+            <p className="text-xl font-bold text-brand-green font-mono">
+              ${formatUsdt(balances.cUsdtDecrypted)}
+            </p>
+          ) : balances.cUsdtHandle ? (
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-brand-green font-mono">Encrypted</p>
+              <button
+                onClick={handleDecryptBalance}
+                disabled={decryptingBalance}
+                className="ml-auto text-xs px-2 py-1 bg-brand-green text-white rounded hover:bg-brand-green-hover disabled:opacity-50 transition-colors"
+              >
+                {decryptingBalance ? "Decrypting..." : "Decrypt"}
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm text-brand-green font-mono">No balance</p>
+          )}
         </div>
       </div>
 
