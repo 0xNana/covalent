@@ -33,6 +33,15 @@ const ERC20_ABI = [
   "function mint(address to, uint256 amount) external",
 ];
 
+const FAUCET_ABI = [
+  "function drip() external",
+  "function timeUntilNextDrip(address account) external view returns (uint256)",
+  "function DRIP_AMOUNT() external view returns (uint256)",
+  "function COOLDOWN() external view returns (uint256)",
+  "function lastDrip(address) external view returns (uint256)",
+  "event Drip(address indexed recipient, uint256 amount, uint256 timestamp)",
+];
+
 const CUSDT_ABI = [
   "function wrap(address to, uint256 amount) external",
   "function unwrap(address from, address to, bytes32 encryptedAmount, bytes inputProof) external",
@@ -50,6 +59,7 @@ const CUSDT_ABI = [
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ?? "";
 const CUSDT_ADDRESS = process.env.NEXT_PUBLIC_CUSDT_ADDRESS ?? "";
 const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_ADDRESS ?? "";
+const FAUCET_ADDRESS = process.env.NEXT_PUBLIC_FAUCET_ADDRESS ?? "";
 
 if (typeof window !== "undefined") {
   if (!CONTRACT_ADDRESS) {
@@ -376,4 +386,33 @@ export async function getFundTokens(fundId: number): Promise<string[]> {
 export async function checkIsAdmin(fundId: number, address: string): Promise<boolean> {
   const contract = getReadContract();
   return await contract.isAdmin(fundId, address);
+}
+
+// ---------------------------------------------------------------------------
+// Faucet helpers
+// ---------------------------------------------------------------------------
+
+export function getFaucetAddress(): string {
+  if (!FAUCET_ADDRESS) {
+    throw new Error("Faucet address not configured. Set NEXT_PUBLIC_FAUCET_ADDRESS.");
+  }
+  return FAUCET_ADDRESS;
+}
+
+export function isFaucetConfigured(): boolean {
+  return Boolean(FAUCET_ADDRESS);
+}
+
+export async function faucetDrip(): Promise<void> {
+  const provider = getProvider();
+  const signer = await provider.getSigner();
+  const faucet = new ethers.Contract(getFaucetAddress(), FAUCET_ABI, signer);
+  const tx = await faucet.drip();
+  await tx.wait();
+}
+
+export async function faucetTimeUntilNextDrip(address: string): Promise<number> {
+  const provider = getProvider();
+  const faucet = new ethers.Contract(getFaucetAddress(), FAUCET_ABI, provider);
+  return Number(await faucet.timeUntilNextDrip(address));
 }

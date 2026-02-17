@@ -8,6 +8,7 @@ const navLinks = [
   { href: "/", label: "Explore" },
   { href: "/donate", label: "Donate" },
   { href: "/private", label: "Make Private" },
+  { href: "/faucet", label: "Faucet" },
   { href: "/create", label: "Start a Fund" },
   { href: "/admin", label: "Admin" },
 ];

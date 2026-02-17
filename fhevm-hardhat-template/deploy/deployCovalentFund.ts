@@ -46,6 +46,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
   }
 
+  // ── 5. Deploy CovalentFaucet (test USDT drip every 24h) ────────────────────
+  const covalentFaucet = await deploy("CovalentFaucet", {
+    from: deployer,
+    args: [mockUsdt.address],
+    log: true,
+  });
+  console.log(`✓ CovalentFaucet deployed at: ${covalentFaucet.address}`);
+
   // ── Summary ───────────────────────────────────────────────────────────────
   console.log("\n═══════════════════════════════════════════════════════════");
   console.log("  Deployment Summary");
@@ -53,11 +61,13 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log(`  MockUSDT:          ${mockUsdt.address}`);
   console.log(`  ConfidentialUSDT:  ${cUsdt.address}`);
   console.log(`  CovalentFund:      ${covalentFund.address}`);
+  console.log(`  CovalentFaucet:    ${covalentFaucet.address}`);
   console.log("═══════════════════════════════════════════════════════════");
   console.log("\n  Update your .env.local with:");
   console.log(`  NEXT_PUBLIC_CONTRACT_ADDRESS=${covalentFund.address}`);
   console.log(`  NEXT_PUBLIC_CUSDT_ADDRESS=${cUsdt.address}`);
   console.log(`  NEXT_PUBLIC_USDT_ADDRESS=${mockUsdt.address}`);
+  console.log(`  NEXT_PUBLIC_FAUCET_ADDRESS=${covalentFaucet.address}`);
   console.log("═══════════════════════════════════════════════════════════\n");
 };
 
