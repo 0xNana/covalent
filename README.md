@@ -224,7 +224,6 @@ function onConfidentialTransferReceived(
 | [Data Flow Diagram](./docs/dfd.md) | Data flows across all system layers |
 | [Threat Model](./docs/threat-model.md) | Security analysis and mitigations |
 | [Zama Integration Guide](./docs/zama-integration.md) | FHEVM integration patterns and best practices |
-| [Demo Script](./docs/demo-script.md) | Step-by-step demo walkthrough |
 
 ## Technology Stack
 
