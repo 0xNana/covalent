@@ -6,19 +6,19 @@ import {
   getUsdtBalance,
   getUsdtAllowance,
   approveUsdt,
-  wrapUsdtToCUsdt,
-  unwrapCUsdt,
-  finalizeUnwrapCUsdt,
-  parseBurntAmountHandleFromUnwrapReceipt,
+  shieldUsdtToCUsdt,
+  unshieldCUsdt,
+  finalizeUnshieldCUsdt,
+  parseBurntAmountHandleFromUnshieldReceipt,
   getCUsdtAddress,
   getCUsdtBalanceHandle,
 } from "@/app/lib/contract";
-import { encryptDonationAmount, initFHEVM, decryptUserBalance, publicDecryptUnwrapHandle } from "@/app/lib/fheClient";
+import { encryptDonationAmount, initFHEVM, decryptUserBalance, publicDecryptUnshieldHandle } from "@/app/lib/fheClient";
 import { ethers } from "ethers";
 
 const USDT_DECIMALS = 6;
 
-type Tab = "wrap" | "unwrap";
+type Tab = "shield" | "unshield";
 
 interface BalanceInfo {
   usdt: bigint;
@@ -30,7 +30,7 @@ interface BalanceInfo {
 export default function TokenManager() {
   const { address, isConnected } = useAccount();
 
-  const [tab, setTab] = useState<Tab>("wrap");
+  const [tab, setTab] = useState<Tab>("shield");
   const [amount, setAmount] = useState("");
   const [balances, setBalances] = useState<BalanceInfo>({
     usdt: BigInt(0),
@@ -124,7 +124,7 @@ export default function TokenManager() {
     return BigInt(Math.round(num * 10 ** USDT_DECIMALS));
   };
 
-  const handleWrap = async () => {
+  const handleShield = async () => {
     if (!address) return;
     const raw = parsedAmount();
     if (raw <= BigInt(0)) return;
@@ -139,10 +139,10 @@ export default function TokenManager() {
         await approveUsdt(getCUsdtAddress(), raw);
       }
 
-      setStep("Converting to private tokens...");
-      await wrapUsdtToCUsdt(address, raw);
+      setStep("Shielding to private tokens...");
+      await shieldUsdtToCUsdt(address, raw);
 
-      setSuccess(`Converted ${amount} USDT to private tokens`);
+      setSuccess(`Shielded ${amount} USDT to private tokens`);
       setAmount("");
       await fetchBalances();
       // Reset decrypted balance so user can decrypt again to see updated balance
@@ -156,7 +156,7 @@ export default function TokenManager() {
     }
   };
 
-  const handleUnwrap = async () => {
+  const handleUnshield = async () => {
     if (!address) return;
     const raw = parsedAmount();
     if (raw <= BigInt(0)) return;
@@ -176,18 +176,18 @@ export default function TokenManager() {
         raw,
       );
 
-      setStep("Converting cUSDT to USDT (step 1/2)...");
-      const receipt = await unwrapCUsdt(address, address, handle, inputProof);
-      const burntAmountHandle = parseBurntAmountHandleFromUnwrapReceipt(getCUsdtAddress(), receipt);
+      setStep("Unshielding cUSDT to USDT (step 1/2)...");
+      const receipt = await unshieldCUsdt(address, address, handle, inputProof);
+      const burntAmountHandle = parseBurntAmountHandleFromUnshieldReceipt(getCUsdtAddress(), receipt);
       if (!burntAmountHandle) {
-        throw new Error("Could not read unwrap request from transaction. Please try again.");
+        throw new Error("Could not read unshield request from transaction. Please try again.");
       }
 
       setStep("Decrypting amount (step 2/2)...");
-      const { decryptedValue, decryptionProof } = await publicDecryptUnwrapHandle(burntAmountHandle);
+      const { decryptedValue, decryptionProof } = await publicDecryptUnshieldHandle(burntAmountHandle);
 
       setStep("Finalizing withdrawal...");
-      await finalizeUnwrapCUsdt(burntAmountHandle, Number(decryptedValue), decryptionProof);
+      await finalizeUnshieldCUsdt(burntAmountHandle, Number(decryptedValue), decryptionProof);
 
       setSuccess(`Withdrew ${amount} USDT to your wallet.`);
       setAmount("");
@@ -258,38 +258,38 @@ export default function TokenManager() {
       <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-lg">
         <button
           onClick={() => {
-            setTab("wrap");
+            setTab("shield");
             setError(null);
             setSuccess(null);
           }}
           className={`flex-1 py-2.5 rounded-md text-sm font-semibold transition-all ${
-            tab === "wrap"
+            tab === "shield"
               ? "bg-white text-brand-dark shadow-sm"
               : "text-brand-muted hover:text-brand-body"
           }`}
         >
-          Make Private
+          Shield
         </button>
         <button
           onClick={() => {
-            setTab("unwrap");
+            setTab("unshield");
             setError(null);
             setSuccess(null);
           }}
           className={`flex-1 py-2.5 rounded-md text-sm font-semibold transition-all ${
-            tab === "unwrap"
+            tab === "unshield"
               ? "bg-white text-brand-dark shadow-sm"
               : "text-brand-muted hover:text-brand-body"
           }`}
         >
-          Withdraw
+          Unshield
         </button>
       </div>
 
       {/* Amount input */}
       <div className="mb-4">
         <label className="text-sm font-semibold text-brand-dark block mb-2">
-          Amount ({tab === "wrap" ? "USDT" : "Private Tokens"})
+          Amount ({tab === "shield" ? "USDT" : "Private Tokens"})
         </label>
         <div className="relative">
           <input
@@ -302,7 +302,7 @@ export default function TokenManager() {
             className="input-field font-mono pr-16"
             disabled={loading}
           />
-          {tab === "wrap" && balances.usdt > 0n && (
+          {tab === "shield" && balances.usdt > 0n && (
             <button
               onClick={() =>
                 setAmount(
@@ -345,7 +345,7 @@ export default function TokenManager() {
 
       {/* Action button */}
       <button
-        onClick={tab === "wrap" ? handleWrap : handleUnwrap}
+        onClick={tab === "shield" ? handleShield : handleUnshield}
         disabled={loading || !amount || parsedAmount() <= 0n}
         className="w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
@@ -354,24 +354,24 @@ export default function TokenManager() {
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             Processing...
           </>
-        ) : tab === "wrap" ? (
+        ) : tab === "shield" ? (
           <>
             <span className="material-icons">lock</span>
-            Make Private
+            Shield
           </>
         ) : (
           <>
             <span className="material-icons">lock_open</span>
-            Withdraw to USDT
+            Unshield
           </>
         )}
       </button>
 
       {/* Info text */}
       <p className="text-xs text-brand-muted mt-4 leading-relaxed">
-        {tab === "wrap"
-          ? "Converts your USDT into private tokens. Your balance becomes invisible and can be used for anonymous donations."
-          : "Converts private tokens back to standard USDT in your wallet."}
+        {tab === "shield"
+          ? "Shields your USDT into private tokens. Your balance becomes invisible and can be used for anonymous donations."
+          : "Unshields private tokens back to standard USDT in your wallet."}
       </p>
     </div>
   );

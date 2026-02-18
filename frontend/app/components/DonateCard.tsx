@@ -14,7 +14,7 @@ const QUICK_AMOUNTS = [25, 100, 500, 1000];
 
 const STEPS = [
   { id: "approve", label: "Approve" },
-  { id: "wrap", label: "Prepare" },
+  { id: "shield", label: "Shield" },
   { id: "encrypt", label: "Protect" },
   { id: "donate", label: "Donate" },
 ];
@@ -56,9 +56,9 @@ export default function DonateCard({
       if (step.includes("Submitting")) return 1;
       return -1;
     } else {
-      // Full steps when wrapping USDT: approve -> 0, wrap -> 1, encrypt -> 2, donate -> 3
+      // Full steps when shielding USDT: approve -> 0, shield -> 1, encrypt -> 2, donate -> 3
       if (step.includes("allowance") || step.includes("Approving")) return 0;
-      if (step.includes("Wrapping")) return 1;
+      if (step.includes("Shielding")) return 1;
       if (step.includes("Encrypting")) return 2;
       if (step.includes("Submitting")) return 3;
       return -1;
@@ -188,7 +188,7 @@ export default function DonateCard({
                 <p className="text-xs text-brand-muted mt-0.5">
                   {useExistingCUsdt
                     ? "Donating directly from your encrypted cUSDT balance"
-                    : "Wrap USDT to cUSDT first, then donate"}
+                    : "Shield USDT to cUSDT first, then donate"}
                 </p>
               </div>
             </label>
@@ -217,13 +217,13 @@ export default function DonateCard({
           <div className="bg-gray-50 p-4 rounded-lg border border-brand-border">
             <div className="flex items-center justify-between mb-3">
               {STEPS.map((step, i) => {
-                // Skip approve and wrap steps if using existing cUSDT
+                // Skip approve and shield steps if using existing cUSDT
                 if (useExistingCUsdt && (i === 0 || i === 1)) {
                   return null;
                 }
                 
                 // When using existing cUSDT, map step indices: encrypt (i=2) -> display 0, donate (i=3) -> display 1
-                // When wrapping USDT, use original indices: approve (i=0) -> display 0, wrap (i=1) -> display 1, etc.
+                // When shielding USDT, use original indices: approve (i=0) -> display 0, shield (i=1) -> display 1, etc.
                 const stepIndex = useExistingCUsdt ? i - 2 : i;
                 
                 const isActive = stepIndex === activeStepIndex;

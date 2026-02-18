@@ -4,17 +4,17 @@
 
 **Built for the Zama Developer Program Mainnet Season 1 — Builder Track**
 
-Covalent enables verifiable fundraising without revealing donor identities or donation amounts. Donors wrap standard ERC-20 tokens (USDT) into confidential ERC-7984 tokens (cUSDT), then donate encrypted amounts on-chain. Only aggregated totals may be revealed through the Managed Control Process (MCP), ensuring individual donations remain private forever.
+Covalent enables verifiable fundraising without revealing donor identities or donation amounts. Donors Shield standard ERC-20 tokens (USDT) into confidential ERC-7984 tokens (cUSDT), then donate encrypted amounts on-chain. Only aggregated totals may be revealed through the Managed Control Process (MCP), ensuring individual donations remain private forever.
 
 ---
 
 ## Key Features
 
-- **ERC-7984 Confidential Tokens** — Donors wrap USDT into cUSDT (encrypted ERC-7984) and donate via `confidentialTransferAndCall`
+- **ERC-7984 Confidential Tokens** — Donors Shield USDT into cUSDT (encrypted ERC-7984) and donate via `confidentialTransferAndCall`
 - **FHE On-Chain Arithmetic** — Encrypted donations are summed using `FHE.add()` on `euint64` ciphertexts — no decryption, no plaintext
 - **Multi-Token Support** — Per-fund, per-token encrypted totals with owner-managed token whitelist
 - **Aggregated Reveals Only** — Authorized admins can reveal the total; individual amounts remain encrypted permanently
-- **Wrap & Unwrap** — Admin panel includes a Token Manager for wrapping USDT → cUSDT and unwrapping cUSDT → USDT
+- **Shield & UnShield** — Admin panel includes a Token Manager for Shieldping USDT → cUSDT and unShieldping cUSDT → USDT
 - **Role-Based Access** — Creator and admin roles control reveal requests and fund management
 - **Full Test Suite** — 44 passing tests (40 CovalentFund + 3 FHECounter + 1 pending Sepolia-only)
 
@@ -25,14 +25,14 @@ Covalent enables verifiable fundraising without revealing donor identities or do
 │  Frontend (Next.js 16 + wagmi + Tailwind CSS)         │
 │  • Landing, Create Fund, Donate, Admin + Token Manager│
 │  • Client-side FHE encryption via @zama-fhe/relayer-sdk│
-│  • Multi-step: approve USDT → wrap → encrypt → donate │
+│  • Multi-step: approve USDT → Shield → encrypt → donate │
 └──────────────────────┬────────────────────────────────┘
                        │ confidentialTransferAndCall
 ┌──────────────────────▼────────────────────────────────┐
 │  Token Layer (ERC-7984 + ERC-20)                      │
 │  • MockUSDT.sol — ERC-20 test token (6 decimals)     │
 │  • ConfidentialUSDT.sol — ERC7984ERC20Wrapper (cUSDT) │
-│  • Wrap / unwrap / confidentialTransfer              │
+│  • Shield / unShield / confidentialTransfer              │
 └──────────────────────┬────────────────────────────────┘
                        │ onConfidentialTransferReceived
 ┌──────────────────────▼────────────────────────────────┐
@@ -56,7 +56,7 @@ See [Architecture Documentation](./docs/architecture.md) for the full breakdown.
 
 ```
 CovalentFund (ERC-7984)
-  Token Wrapping (2 tests)          ✔ wrap USDT → cUSDT, verify underlying
+  Token Shieldping (2 tests)          ✔ Shield USDT → cUSDT, verify underlying
   Fund Creation (5 tests)           ✔ create, events, validation, ID increment
   Token Whitelist (7 tests)         ✔ add/remove, events, owner-only, edge cases
   Confidential Donations (5 tests)  ✔ confidentialTransferAndCall, multi-donor, events
@@ -78,7 +78,7 @@ covalent/
 ├── contracts/                         # Hardhat project (FHEVM toolchain)
 │   ├── contracts/
 │   │   ├── CovalentFund.sol          # Main contract — IERC7984Receiver, euint64
-│   │   ├── ConfidentialUSDT.sol      # ERC7984ERC20Wrapper wrapping MockUSDT
+│   │   ├── ConfidentialUSDT.sol      # ERC7984ERC20Wrapper shielding MockUSDT
 │   │   ├── FHECounter.sol            # Reference FHE counter (Zama template)
 │   │   ├── mocks/
 │   │   │   └── MockUSDT.sol          # Mintable ERC-20 (6 decimals)
@@ -99,8 +99,8 @@ covalent/
 │   │   ├── layout.tsx                # Root layout + providers
 │   │   ├── providers.tsx             # wagmi + React Query
 │   │   ├── components/
-│   │   │   ├── DonateCard.tsx        # Multi-step: approve → wrap → encrypt → donate
-│   │   │   ├── TokenManager.tsx      # Wrap/unwrap USDT ↔ cUSDT
+│   │   │   ├── DonateCard.tsx        # Multi-step: approve → Shield → encrypt → donate
+│   │   │   ├── TokenManager.tsx      # Shield/unShield USDT ↔ cUSDT
 │   │   │   ├── FundStats.tsx         # Encrypted totals, donation count
 │   │   │   ├── RevealButton.tsx      # Request reveal UI
 │   │   │   ├── Navbar.tsx            # Navigation
@@ -204,7 +204,7 @@ npm run dev
 ### Donation Flow (ERC-7984)
 
 ```solidity
-// Donor wraps USDT → cUSDT, then calls confidentialTransferAndCall on cUSDT
+// Donor Shields USDT → cUSDT, then calls confidentialTransferAndCall on cUSDT
 // cUSDT calls CovalentFund.onConfidentialTransferReceived()
 function onConfidentialTransferReceived(
     address operator,

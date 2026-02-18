@@ -176,12 +176,12 @@ export async function decryptUserBalance(
 const MAX_UINT64 = 18_446_744_073_709_551_615n;
 
 /**
- * Decrypt the on-chain burnt amount handle from an unwrap (UnwrapRequested event).
- * Use the returned value and proof to call finalizeUnwrap.
+ * Decrypt the on-chain burnt amount handle from an unshield (UnwrapRequested event).
+ * Use the returned value and proof to call finalizeUnshield.
  * @param burntAmountHandle The bytes32 handle from UnwrapRequested (on-chain handle).
- * @returns Decrypted amount (in wrapped-token units, pass as uint64 to finalizeUnwrap) and the decryption proof.
+ * @returns Decrypted amount (in shielded-token units, pass as uint64 to finalizeUnshield) and the decryption proof.
  */
-export async function publicDecryptUnwrapHandle(
+export async function publicDecryptUnshieldHandle(
   burntAmountHandle: string,
 ): Promise<{ decryptedValue: bigint; decryptionProof: string }> {
   const fhevmInstance = getFHEVMInstance();
@@ -216,7 +216,7 @@ export async function publicDecryptUnwrapHandle(
   } else if (Array.isArray(result) && result.length > 0) {
     decryptedValue = BigInt(result[0]);
   } else {
-    throw new Error("Invalid publicDecrypt result for unwrap handle");
+    throw new Error("Invalid publicDecrypt result for unshield handle");
   }
 
   if (decryptedValue > MAX_UINT64) throw new Error("Decrypted value exceeds uint64 max");

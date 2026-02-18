@@ -3,7 +3,7 @@ import {
   getCUsdtAddress,
   approveUsdt,
   getUsdtAllowance,
-  wrapUsdtToCUsdt,
+  shieldUsdtToCUsdt,
   donateConfidential,
 } from "./contract";
 
@@ -11,14 +11,14 @@ const MAX_UINT64 = 18_446_744_073_709_551_615n;
 const USDT_DECIMALS = 6;
 
 /**
- * Full donation flow: approve USDT -> wrap to cUSDT -> encrypt -> donate.
+ * Full donation flow: approve USDT -> shield to cUSDT -> encrypt -> donate.
  * Or use existing cUSDT balance if useExistingCUsdt is true.
  *
  * @param fundId The fund to donate to
  * @param amount The plaintext donation amount (in human-readable USDT units, e.g. 100 = $100)
  * @param userAddress The connected wallet address of the donor
  * @param onStep Callback for UI progress updates
- * @param useExistingCUsdt If true, use existing cUSDT balance instead of wrapping USDT
+ * @param useExistingCUsdt If true, use existing cUSDT balance instead of shielding USDT
  */
 export async function encryptAndDonate(
   fundId: number,
@@ -57,8 +57,8 @@ export async function encryptAndDonate(
     onStep?.("Submitting confidential donation...");
     await donateConfidential(fundId, handle, inputProof);
   } else {
-    // Flow: Wrap USDT first, then donate
-    // Step 1: Check allowance and approve USDT to cUSDT wrapper if needed
+    // Flow: Shield USDT first, then donate
+    // Step 1: Check allowance and approve USDT to cUSDT shielder if needed
     onStep?.("Checking USDT allowance...");
     const currentAllowance = await getUsdtAllowance(userAddress, cUsdtAddress);
     if (currentAllowance < rawAmount) {
@@ -66,9 +66,9 @@ export async function encryptAndDonate(
       await approveUsdt(cUsdtAddress, rawAmount);
     }
 
-    // Step 2: Wrap USDT → cUSDT
-    onStep?.("Wrapping USDT → cUSDT...");
-    await wrapUsdtToCUsdt(userAddress, rawAmount);
+    // Step 2: Shield USDT → cUSDT
+    onStep?.("Shielding USDT → cUSDT...");
+    await shieldUsdtToCUsdt(userAddress, rawAmount);
 
     // Step 3: Encrypt the donation amount
     onStep?.("Encrypting donation amount...");

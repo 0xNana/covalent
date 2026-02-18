@@ -25,7 +25,7 @@ async function deployFixture(deployer: HardhatEthersSigner) {
   const usdtFactory = (await ethers.getContractFactory("MockUSDT")) as MockUSDT__factory;
   const usdt = (await usdtFactory.deploy()) as MockUSDT;
 
-  // Deploy ConfidentialUSDT wrapping MockUSDT
+  // Deploy ConfidentialUSDT Shieldping MockUSDT
   const cUsdtFactory = (await ethers.getContractFactory("ConfidentialUSDT")) as ConfidentialUSDT__factory;
   const cUsdt = (await cUsdtFactory.deploy(await usdt.getAddress())) as ConfidentialUSDT;
 

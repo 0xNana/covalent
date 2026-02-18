@@ -257,15 +257,15 @@ export async function approveUsdt(spender: string, amount: bigint): Promise<void
 }
 
 // ---------------------------------------------------------------------------
-// cUSDT helpers (ERC-7984 wrapper)
+// cUSDT helpers (ERC-7984 shielder)
 // ---------------------------------------------------------------------------
 
 export async function getCUsdtInferredBalance(address: string): Promise<bigint> {
   const provider = getProvider();
   const cUsdt = new ethers.Contract(getCUsdtAddress(), CUSDT_ABI, provider);
-  // inferredTotalSupply gives the wrapper's total; for individual balance we check underlying
-  // But ERC-7984 balances are encrypted — we can only check USDT held by the wrapper
-  // For the UI, we show the user's USDT balance + the wrapper's total supply as a proxy
+  // inferredTotalSupply gives the shielder's total; for individual balance we check underlying
+  // But ERC-7984 balances are encrypted — we can only check USDT held by the shielder
+  // For the UI, we show the user's USDT balance + the shielder's total supply as a proxy
   return await cUsdt.inferredTotalSupply().catch(() => BigInt(0));
 }
 
@@ -283,7 +283,7 @@ export async function getCUsdtBalanceHandle(address: string): Promise<string | n
     const handle = await cUsdt.confidentialBalanceOf(address);
     
     // Handle can be null/zero if balance is 0 or not initialized
-    // euint64.unwrap() returns bytes32, and ethers should decode it as a string
+    // euint64.unwrap() returns bytes32 (contract method name), and ethers should decode it as a string
     if (!handle || 
         handle === ethers.ZeroHash || 
         handle === "0x0000000000000000000000000000000000000000000000000000000000000000" ||
@@ -311,21 +311,21 @@ export async function getCUsdtBalanceHandle(address: string): Promise<string | n
   }
 }
 
-export async function wrapUsdtToCUsdt(to: string, amount: bigint): Promise<void> {
+export async function shieldUsdtToCUsdt(to: string, amount: bigint): Promise<void> {
   const provider = getProvider();
   const signer = await provider.getSigner();
   const cUsdt = new ethers.Contract(getCUsdtAddress(), CUSDT_ABI, signer);
-  const tx = await cUsdt.wrap(to, amount);
+  const tx = await cUsdt.wrap(to, amount); // Contract still uses wrap(), but we call it shield in UI
   await tx.wait();
 }
 
 /**
- * Unwrap cUSDT back to USDT (step 1 of 2).
+ * Unshield cUSDT back to USDT (step 1 of 2).
  * Burns the encrypted cUSDT, emits UnwrapRequested with the on-chain burnt amount handle.
- * Caller must then decrypt that handle and call finalizeUnwrapCUsdt to receive USDT.
- * @returns The transaction receipt (use parseBurntAmountHandleFromUnwrapReceipt to get the handle for decryption + finalize).
+ * Caller must then decrypt that handle and call finalizeUnshieldCUsdt to receive USDT.
+ * @returns The transaction receipt (use parseBurntAmountHandleFromUnshieldReceipt to get the handle for decryption + finalize).
  */
-export async function unwrapCUsdt(
+export async function unshieldCUsdt(
   from: string,
   to: string,
   handle: Uint8Array,
@@ -334,16 +334,16 @@ export async function unwrapCUsdt(
   const provider = getProvider();
   const signer = await provider.getSigner();
   const cUsdt = new ethers.Contract(getCUsdtAddress(), CUSDT_ABI, signer);
-  const tx = await cUsdt.unwrap(from, to, handle, inputProof, { gasLimit: 5_000_000 });
+  const tx = await cUsdt.unwrap(from, to, handle, inputProof, { gasLimit: 5_000_000 }); // Contract still uses unwrap(), but we call it unshield in UI
   const receipt = await tx.wait();
   return receipt;
 }
 
 /**
- * Parse the UnwrapRequested event from an unwrap() transaction receipt.
- * The emitted handle is the on-chain burnt amount (must be used for publicDecrypt and finalizeUnwrap).
+ * Parse the UnwrapRequested event from an unshield() transaction receipt.
+ * The emitted handle is the on-chain burnt amount (must be used for publicDecrypt and finalizeUnshield).
  */
-export function parseBurntAmountHandleFromUnwrapReceipt(
+export function parseBurntAmountHandleFromUnshieldReceipt(
   cUsdtAddress: string,
   receipt: ethers.TransactionReceipt | null,
 ): string | null {
@@ -361,10 +361,10 @@ export function parseBurntAmountHandleFromUnwrapReceipt(
 }
 
 /**
- * Finalize unwrap (step 2 of 2). Call after unwrap() and publicDecrypt of the burnt amount handle.
- * Transfers the underlying USDT to the recipient stored in the unwrap request.
+ * Finalize unshield (step 2 of 2). Call after unshield() and publicDecrypt of the burnt amount handle.
+ * Transfers the underlying USDT to the recipient stored in the unshield request.
  */
-export async function finalizeUnwrapCUsdt(
+export async function finalizeUnshieldCUsdt(
   burntAmountHandle: string,
   burntAmountCleartext: number,
   decryptionProof: string | Uint8Array,
