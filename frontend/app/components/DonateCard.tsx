@@ -131,16 +131,13 @@ export default function DonateCard({
             Amount (USDT)
           </label>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-brand-muted pointer-events-none z-10">
-              $
-            </span>
             <input
               type="number"
               min="1"
               step="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="input-field pl-11 pr-16 text-2xl font-bold h-14"
+              className="input-field pl-4 pr-16 text-2xl font-bold h-14"
               placeholder="0"
               disabled={loading || !isConnected}
               required

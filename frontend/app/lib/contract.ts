@@ -109,6 +109,42 @@ export function getFundMetadata(fundId: number): FundMetadata | null {
 }
 
 // ---------------------------------------------------------------------------
+// Fund creators (for Admin nav visibility — only creators see Admin link)
+// ---------------------------------------------------------------------------
+
+const CREATORS_KEY = "covalent_fund_creators";
+
+function getCreatorsStore(): Record<string, number[]> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(CREATORS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function addCreatedFund(creatorAddress: string, fundId: number): void {
+  if (typeof window === "undefined") return;
+  const store = getCreatorsStore();
+  const key = creatorAddress.toLowerCase();
+  const ids = store[key] ?? [];
+  if (!ids.includes(fundId)) ids.push(fundId);
+  store[key] = ids;
+  localStorage.setItem(CREATORS_KEY, JSON.stringify(store));
+}
+
+export function getCreatedFundIds(creatorAddress: string): number[] {
+  const store = getCreatorsStore();
+  return store[creatorAddress?.toLowerCase() ?? ""] ?? [];
+}
+
+export function hasCreatedFunds(creatorAddress: string | undefined): boolean {
+  if (!creatorAddress) return false;
+  return getCreatedFundIds(creatorAddress).length > 0;
+}
+
+// ---------------------------------------------------------------------------
 // Provider / contract helpers
 // ---------------------------------------------------------------------------
 
@@ -454,6 +490,10 @@ export async function createFund(params: {
     description: params.description,
   });
 
+  const signer = await getProvider().getSigner();
+  const creatorAddress = await signer.getAddress();
+  addCreatedFund(creatorAddress, fundId);
+
   return fundId;
 }
 
@@ -495,8 +535,30 @@ export interface FundData {
 }
 
 export async function getFund(fundId: number): Promise<FundData> {
+  if (!fundId || fundId < 1) {
+    throw new Error("Invalid fund ID. Please enter a valid fund number (1 or higher).");
+  }
+
   const contract = getReadContract();
-  const f = await contract.getFund(fundId);
+  let f: Awaited<ReturnType<typeof contract.getFund>>;
+  try {
+    f = await contract.getFund(fundId);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (
+      msg.includes("BAD_DATA") ||
+      msg.includes("could not decode") ||
+      msg.includes("value=\"0x\"") ||
+      msg.includes("FundDoesNotExist") ||
+      msg.includes("execution reverted")
+    ) {
+      throw new Error(
+        "Fund not found. Check that the fund ID is correct and you're connected to the right network."
+      );
+    }
+    throw err;
+  }
+
   const meta = getFundMetadata(fundId);
 
   return {
