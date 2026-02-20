@@ -4,7 +4,7 @@
 
 **Built for the Zama Developer Program Mainnet Season 1 — Builder Track**
 
-Covalent enables verifiable fundraising without revealing donor identities or donation amounts. Donors Shield standard ERC-20 tokens (USDT) into confidential ERC-7984 tokens (cUSDT), then donate encrypted amounts on-chain. Only aggregated totals may be revealed through the Managed Control Process (MCP), ensuring individual donations remain private forever.
+Covalent enables verifiable fundraising without revealing donor identities or donation amounts. Donors Shield standard ERC-20 tokens (USDT) into confidential ERC-7984 tokens (cUSDT), then donate encrypted amounts on-chain. Only aggregated totals may be revealed through the Multi-party computation(MCP), ensuring individual donations remain private forever.
 
 ---
 
@@ -14,7 +14,7 @@ Covalent enables verifiable fundraising without revealing donor identities or do
 - **FHE On-Chain Arithmetic** — Encrypted donations are summed using `FHE.add()` on `euint64` ciphertexts — no decryption, no plaintext
 - **Multi-Token Support** — Per-fund, per-token encrypted totals with owner-managed token whitelist
 - **Aggregated Reveals Only** — Authorized admins can reveal the total; individual amounts remain encrypted permanently
-- **Shield & UnShield** — Admin panel includes a Token Manager for Shieldping USDT → cUSDT and unShieldping cUSDT → USDT
+- **Shield & UnShield** — Admin panel includes a Token Manager for Shielding USDT → cUSDT and unShielding cUSDT → USDT
 - **Role-Based Access** — Creator and admin roles control reveal requests and fund management
 - **Full Test Suite** — 44 passing tests (40 CovalentFund + 3 FHECounter + 1 pending Sepolia-only)
 
