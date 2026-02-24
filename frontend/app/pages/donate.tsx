@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import DonateCard from "@/app/components/DonateCard";
+import { DEMO_FUNDS } from "@/app/lib/donate-funds";
 
 export default function DonatePage() {
   const { isConnected } = useAccount();
@@ -29,6 +30,54 @@ export default function DonatePage() {
           Please connect your wallet to donate.
         </div>
       )}
+
+      {/* Explore funds */}
+      <div className="card p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-brand-dark">Explore Funds</h2>
+          <p className="text-sm text-brand-muted">
+            Pick a fund to donate privately.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {DEMO_FUNDS.map((fund) => (
+            <button
+              key={fund.id}
+              type="button"
+              onClick={() => setFundId(String(fund.id))}
+              className={`card border text-left transition-colors overflow-hidden flex flex-col h-full ${
+                fundId === String(fund.id)
+                  ? "border-brand-green bg-brand-green-light/30"
+                  : "border-brand-border hover:border-brand-green"
+              }`}
+              disabled={!isConnected}
+            >
+              <div
+                className={`h-24 w-full bg-gradient-to-r ${fund.theme.gradient} relative`}
+              >
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.8),transparent_45%),radial-gradient(circle_at_80%_30%,rgba(255,255,255,0.6),transparent_40%)]" />
+                <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 text-brand-dark text-[10px] font-bold px-2.5 py-1 shadow-sm">
+                  <span className="material-icons text-[12px]">
+                    {fund.theme.icon}
+                  </span>
+                  {fund.theme.badge}
+                </div>
+                <div className="absolute bottom-3 left-3 text-white text-xs font-semibold">
+                  Fund ID #{fund.id}
+                </div>
+              </div>
+              <div className="px-4 py-4 flex-1">
+                <h3 className="text-sm font-bold text-brand-dark min-h-[2.5rem]">
+                  {fund.title}
+                </h3>
+                <p className="text-xs text-brand-muted mt-2 leading-relaxed min-h-[2.5rem]">
+                  {fund.desc}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Fund ID selector */}
       <div className="card p-6">

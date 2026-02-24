@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+
 export default function LandingPage() {
   return (
     <>
@@ -70,6 +71,7 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
 
       {/* How it works */}
       <section id="how-it-works" className="bg-white py-16 border-y border-brand-border">

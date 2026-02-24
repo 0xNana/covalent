@@ -50,7 +50,7 @@ Covalent enables verifiable fundraising without revealing donor identities or do
 └───────────────────────────────────────────────────────┘
 ```
 
-See [Architecture Documentation](./docs/architecture.md) for the full breakdown.
+See [Architecture Documentation](./docs/architecture.md) for the public overview and `internal-docs/architecture.md` for the full breakdown.
 
 ## Test Results
 
@@ -118,10 +118,15 @@ covalent/
 │   ├── create-fund.ts               # Create a new donation fund
 │   ├── donate.ts                    # Make a confidential donation
 │   └── README.md                     # Scripts documentation
-├── docs/                              # Project documentation
+├── docs/                              # Public documentation (Builder Track)
+│   ├── README.md
+│   ├── architecture.md
+│   ├── demo.md
+│   ├── quickstart.md
+│   └── video.md
+├── internal-docs/                     # Internal technical documentation
 │   ├── architecture.md
 │   ├── covalent-srs.md
-│   ├── demo-script.md
 │   ├── dfd.md
 │   ├── threat-model.md
 │   └── zama-integration.md
@@ -219,11 +224,21 @@ function onConfidentialTransferReceived(
 
 | Document | Description |
 |----------|-------------|
-| [Software Requirements Specification](./docs/covalent-srs.md) | Functional and non-functional requirements |
-| [Architecture](./docs/architecture.md) | System architecture and design decisions |
-| [Data Flow Diagram](./docs/dfd.md) | Data flows across all system layers |
-| [Threat Model](./docs/threat-model.md) | Security analysis and mitigations |
-| [Zama Integration Guide](./docs/zama-integration.md) | FHEVM integration patterns and best practices |
+| [Public Docs](./docs/README.md) | Builder Track-ready documentation set |
+| [Quick Start](./docs/quickstart.md) | Install, test, deploy, and run the demo |
+| [Architecture Overview](./docs/architecture.md) | High-level system architecture |
+| [Demo Walk-Through](./docs/demo.md) | End-to-end demo steps |
+
+## Internal Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Software Requirements Specification](./internal-docs/covalent-srs.md) | Functional and non-functional requirements |
+| [Architecture](./internal-docs/architecture.md) | Detailed system architecture and design decisions |
+| [Data Flow Diagram](./internal-docs/dfd.md) | Data flows across all system layers |
+| [Threat Model](./internal-docs/threat-model.md) | Security analysis and mitigations |
+| [Zama Integration Guide](./internal-docs/zama-integration.md) | FHEVM integration patterns and best practices |
+| [Video Demo](./internal-docs/video.md) | 2-minute video requirement and script link |
 
 ## Technology Stack
 

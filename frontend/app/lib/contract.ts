@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { getDemoFundMeta } from "@/app/lib/donate-funds";
 
 // ---------------------------------------------------------------------------
 // ABIs
@@ -560,6 +561,7 @@ export async function getFund(fundId: number): Promise<FundData> {
   }
 
   const meta = getFundMetadata(fundId);
+  const demoMeta = getDemoFundMeta(fundId);
 
   return {
     id: Number(f.id),
@@ -569,8 +571,8 @@ export async function getFund(fundId: number): Promise<FundData> {
     endTime: Number(f.endTime),
     active: f.active,
     donationCount: Number(f.donationCount),
-    title: meta?.title ?? null,
-    description: meta?.description ?? null,
+    title: meta?.title ?? demoMeta?.title ?? null,
+    description: meta?.description ?? demoMeta?.desc ?? null,
   };
 }
 
