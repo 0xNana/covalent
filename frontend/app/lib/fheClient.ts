@@ -175,20 +175,14 @@ export async function decryptUserBalance(
 
 const MAX_UINT64 = 18_446_744_073_709_551_615n;
 
-/**
- * Decrypt the on-chain burnt amount handle from an unshield (UnwrapRequested event).
- * Use the returned value and proof to call finalizeUnshield.
- * @param burntAmountHandle The bytes32 handle from UnwrapRequested (on-chain handle).
- * @returns Decrypted amount (in shielded-token units, pass as uint64 to finalizeUnshield) and the decryption proof.
- */
-export async function publicDecryptUnshieldHandle(
-  burntAmountHandle: string,
+async function publicDecryptUint64Handle(
+  handle: string,
 ): Promise<{ decryptedValue: bigint; decryptionProof: string }> {
   const fhevmInstance = getFHEVMInstance();
   const handleHex =
-    typeof burntAmountHandle === "string" && burntAmountHandle.startsWith("0x")
-      ? burntAmountHandle
-      : `0x${Buffer.from(burntAmountHandle).toString("hex")}`;
+    typeof handle === "string" && handle.startsWith("0x")
+      ? handle
+      : `0x${Buffer.from(handle).toString("hex")}`;
 
   const result = await (fhevmInstance as any).publicDecrypt([handleHex]);
 
@@ -197,7 +191,7 @@ export async function publicDecryptUnshieldHandle(
     const clearValues = result.clearValues as Record<string, number | bigint | string>;
     const keys = [
       handleHex,
-      burntAmountHandle,
+      handle,
       handleHex.toLowerCase(),
       handleHex.toUpperCase(),
       handleHex.replace(/^0x/, ""),
@@ -236,4 +230,26 @@ export async function publicDecryptUnshieldHandle(
   }
 
   return { decryptedValue, decryptionProof };
+}
+
+/**
+ * Decrypt the on-chain burnt amount handle from an unshield (UnwrapRequested event).
+ * Use the returned value and proof to call finalizeUnshield.
+ * @param burntAmountHandle The bytes32 handle from UnwrapRequested (on-chain handle).
+ * @returns Decrypted amount (in shielded-token units, pass as uint64 to finalizeUnshield) and the decryption proof.
+ */
+export async function publicDecryptUnshieldHandle(
+  burntAmountHandle: string,
+): Promise<{ decryptedValue: bigint; decryptionProof: string }> {
+  return publicDecryptUint64Handle(burntAmountHandle);
+}
+
+/**
+ * Decrypt a publicly decryptable fund-total handle and return the proof needed
+ * for on-chain reveal finalization.
+ */
+export async function publicDecryptFundHandle(
+  fundTotalHandle: string,
+): Promise<{ decryptedValue: bigint; decryptionProof: string }> {
+  return publicDecryptUint64Handle(fundTotalHandle);
 }

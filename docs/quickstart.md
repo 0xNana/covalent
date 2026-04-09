@@ -32,6 +32,7 @@ Copy the printed addresses into `.env.local` at the repository root:
 NEXT_PUBLIC_CONTRACT_ADDRESS=<CovalentFund>
 NEXT_PUBLIC_CUSDT_ADDRESS=<ConfidentialUSDT>
 NEXT_PUBLIC_USDT_ADDRESS=<MockUSDT>
+NEXT_PUBLIC_FAUCET_ADDRESS=<CovalentFaucet>
 ```
 
 ## Run the Frontend
@@ -43,4 +44,4 @@ npm run dev
 ```
 
 Open the local app in your browser and connect a wallet to test the demo flow.
-
+Use an admin wallet to request a reveal after fund close, then use the contract owner wallet to finalize the proof-backed reveal.

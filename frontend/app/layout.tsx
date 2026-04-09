@@ -1,17 +1,6 @@
 import type { Metadata } from "next";
-import { Manrope, JetBrains_Mono } from "next/font/google";
 import "./styles/globals.css";
 import ClientShell from "./ClientShell";
-
-const manrope = Manrope({
-  subsets: ["latin"],
-  variable: "--font-display",
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-});
 
 export const metadata: Metadata = {
   title: "Covalent | Give Privately, Make a Difference",
@@ -41,9 +30,7 @@ export default function RootLayout({
           type="text/javascript"
         />
       </head>
-      <body
-        className={`${manrope.variable} ${jetbrains.variable} font-display bg-brand-bg-warm text-brand-body min-h-screen`}
-      >
+      <body className="font-display bg-brand-bg-warm text-brand-body min-h-screen">
         <ClientShell>{children}</ClientShell>
       </body>
     </html>

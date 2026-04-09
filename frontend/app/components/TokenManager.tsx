@@ -187,7 +187,7 @@ export default function TokenManager() {
       const { decryptedValue, decryptionProof } = await publicDecryptUnshieldHandle(burntAmountHandle);
 
       setStep("Finalizing withdrawal...");
-      await finalizeUnshieldCUsdt(burntAmountHandle, Number(decryptedValue), decryptionProof);
+      await finalizeUnshieldCUsdt(burntAmountHandle, decryptedValue, decryptionProof);
 
       setSuccess(`Withdrew ${amount} USDT to your wallet.`);
       setAmount("");

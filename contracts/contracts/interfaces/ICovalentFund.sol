@@ -62,7 +62,7 @@ interface ICovalentFund {
         uint256 timestamp
     );
 
-    /// @notice Emitted when a per-token total is revealed
+    /// @notice Emitted when a per-token total is publicly disclosed with a verified proof
     event TotalRevealed(
         uint256 indexed fundId,
         address indexed token,
@@ -118,6 +118,8 @@ interface ICovalentFund {
 
     function isTokenRevealed(uint256 fundId, address token) external view returns (bool);
 
+    function isRevealRequested(uint256 fundId, address token) external view returns (bool);
+
     function getFundTokens(uint256 fundId) external view returns (address[] memory);
 
     // -------------------------------------------------------------------------
@@ -126,7 +128,7 @@ interface ICovalentFund {
 
     function requestReveal(uint256 fundId, address token) external;
 
-    function revealTotal(uint256 fundId, address token, uint256 decryptedTotal) external;
+    function revealTotal(uint256 fundId, address token, uint64 decryptedTotal, bytes calldata decryptionProof) external;
 
     function withdraw(uint256 fundId, address token) external;
 

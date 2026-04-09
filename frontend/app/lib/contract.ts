@@ -11,9 +11,11 @@ const COVALENT_FUND_ABI = [
   "function getEncryptedTotal(uint256 fundId, address token) external view returns (bytes32)",
   "function getRevealedTotal(uint256 fundId, address token) external view returns (uint256)",
   "function isTokenRevealed(uint256 fundId, address token) external view returns (bool)",
+  "function isRevealRequested(uint256 fundId, address token) external view returns (bool)",
   "function getFundTokens(uint256 fundId) external view returns (address[])",
+  "function owner() external view returns (address)",
   "function requestReveal(uint256 fundId, address token) external",
-  "function revealTotal(uint256 fundId, address token, uint256 decryptedTotal) external",
+  "function revealTotal(uint256 fundId, address token, uint64 decryptedTotal, bytes decryptionProof) external",
   "function withdraw(uint256 fundId, address token) external",
   "function isAdmin(uint256 fundId, address account) external view returns (bool)",
   "function addAdmin(uint256 fundId, address admin) external",
@@ -403,7 +405,7 @@ export function parseBurntAmountHandleFromUnshieldReceipt(
  */
 export async function finalizeUnshieldCUsdt(
   burntAmountHandle: string,
-  burntAmountCleartext: number,
+  burntAmountCleartext: bigint,
   decryptionProof: string | Uint8Array,
 ): Promise<void> {
   const provider = getProvider();
@@ -509,6 +511,25 @@ export async function requestReveal(fundId: number, token?: string): Promise<voi
 }
 
 /**
+ * Finalize a requested public reveal with a KMS decryption proof (owner only).
+ */
+export async function revealTotalWithProof(
+  fundId: number,
+  decryptedTotal: bigint,
+  decryptionProof: string | Uint8Array,
+  token?: string,
+): Promise<void> {
+  const contract = await getSignedContract();
+  const tokenAddr = token || getCUsdtAddress();
+  const proofBytes =
+    typeof decryptionProof === "string"
+      ? decryptionProof
+      : ethers.hexlify(decryptionProof instanceof Uint8Array ? decryptionProof : new Uint8Array(decryptionProof));
+  const tx = await contract.revealTotal(fundId, tokenAddr, decryptedTotal, proofBytes);
+  await tx.wait();
+}
+
+/**
  * Withdraw confidential tokens from a closed fund (admin only)
  */
 export async function withdrawFund(fundId: number, token?: string): Promise<void> {
@@ -604,6 +625,15 @@ export async function isTokenRevealed(fundId: number, token?: string): Promise<b
 }
 
 /**
+ * Check if a reveal has been requested for a fund+token pair.
+ */
+export async function isRevealRequested(fundId: number, token?: string): Promise<boolean> {
+  const contract = getReadContract();
+  const tokenAddr = token || getCUsdtAddress();
+  return await contract.isRevealRequested(fundId, tokenAddr);
+}
+
+/**
  * Get list of tokens that have received donations for a fund
  */
 export async function getFundTokens(fundId: number): Promise<string[]> {
@@ -617,6 +647,14 @@ export async function getFundTokens(fundId: number): Promise<string[]> {
 export async function checkIsAdmin(fundId: number, address: string): Promise<boolean> {
   const contract = getReadContract();
   return await contract.isAdmin(fundId, address);
+}
+
+/**
+ * Get the contract owner address.
+ */
+export async function getContractOwner(): Promise<string> {
+  const contract = getReadContract();
+  return await contract.owner();
 }
 
 // ---------------------------------------------------------------------------

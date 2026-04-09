@@ -2,7 +2,7 @@
 
 Welcome to the public documentation for Covalent, a confidential donation platform built on the Zama FHEVM and ERC-7984 confidential tokens.
 
-Covalent enables verifiable fundraising without revealing individual donation amounts. Donors wrap standard ERC-20 tokens into confidential ERC-7984 tokens, encrypt donation amounts client-side, and submit encrypted transfers on-chain. Only aggregated totals can be revealed through an authorized process.
+Covalent enables verifiable fundraising without revealing individual donation amounts. Donors wrap standard ERC-20 tokens into confidential ERC-7984 tokens, encrypt donation amounts client-side, and submit encrypted transfers on-chain. Only aggregated totals can be revealed through an authorized, proof-verified process.
 
 ## Builder Track Requirements
 
@@ -10,7 +10,7 @@ Covalent enables verifiable fundraising without revealing individual donation am
 - Demonstrates real-world use cases of FHE technology
 - Includes both smart contract and frontend implementation
 - Clear, well-structured project documentation
-- A 2-minute video demo pitching the project
+- A 3-minute video demo pitching the project
 
 This documentation set maps to those requirements:
 
@@ -28,7 +28,7 @@ Covalent targets scenarios where donors need privacy but recipients still need v
 - Create a fund with a recipient and time window
 - Wrap USDT into confidential cUSDT
 - Encrypt and donate a private amount
-- Reveal only the aggregate total after admin authorization
+- Request and finalize a proof-verified aggregate reveal after the fund closes
 - Withdraw confidential funds to the recipient
 
 ## Project Overview

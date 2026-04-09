@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Covalent is a confidential donation platform built on Zama FHEVM and ERC-7984 confidential tokens. Donations are encrypted client-side and aggregated on-chain without decryption. Only the final per-fund total can be revealed through an authorized process.
+Covalent is a confidential donation platform built on Zama FHEVM and ERC-7984 confidential tokens. Donations are encrypted client-side and aggregated on-chain without decryption. Only the final per-fund total can be revealed through an authorized, proof-verified process.
 
 ## High-Level Flow
 
@@ -8,7 +8,7 @@ Covalent is a confidential donation platform built on Zama FHEVM and ERC-7984 co
 2. Donor encrypts the donation amount client-side with `@zama-fhe/relayer-sdk`.
 3. Donor submits `confidentialTransferAndCall` to the fund contract with encrypted inputs.
 4. The fund contract accumulates encrypted totals using `FHE.add()`.
-5. An authorized admin requests a reveal, and the MCP submits the aggregated plaintext total.
+5. After the fund closes, an authorized admin requests a reveal, and the MCP submits the aggregated plaintext total together with a verified decryption proof.
 
 ## Layers
 
@@ -30,4 +30,3 @@ Covalent is a confidential donation platform built on Zama FHEVM and ERC-7984 co
 - Admin reveal UI requests aggregate decryption only.
 
 For deeper technical artifacts, see `internal-docs/`.
-

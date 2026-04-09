@@ -9,6 +9,7 @@ import {
   ConfidentialUSDT__factory,
 } from "../types";
 import { expect } from "chai";
+import { FhevmType } from "@fhevm/hardhat-plugin";
 
 type Signers = {
   deployer: HardhatEthersSigner;
@@ -73,6 +74,30 @@ async function mintAndWrap(
   await usdt.mint(user.address, amount);
   await usdt.connect(user).approve(cUsdtAddress, amount);
   await cUsdt.connect(user).wrap(user.address, amount);
+}
+
+async function increaseTime(seconds: number) {
+  await network.provider.send("evm_increaseTime", [seconds]);
+  await network.provider.send("evm_mine", []);
+}
+
+async function publicDecryptHandle(handle: string) {
+  const decrypted = await fhevm.publicDecrypt([handle]);
+  const cleartext = decrypted.clearValues[handle];
+
+  if (typeof cleartext !== "bigint") {
+    throw new Error(`Unexpected cleartext type for handle ${handle}: ${typeof cleartext}`);
+  }
+
+  return {
+    cleartext,
+    decryptionProof: decrypted.decryptionProof,
+  };
+}
+
+async function publicDecryptFundTotal(contract: CovalentFund, fundId: number, token: string) {
+  const encryptedTotal = await contract.getEncryptedTotal(fundId, token);
+  return publicDecryptHandle(encryptedTotal);
 }
 
 describe("CovalentFund (ERC-7984)", function () {
@@ -375,98 +400,12 @@ describe("CovalentFund (ERC-7984)", function () {
 
   describe("Reveal Process", function () {
     const FUND_ID = 1;
-
-    beforeEach(async function () {
-      await createTestFund(fund, signers.recipient.address, 60, 86400);
-
-      await network.provider.send("evm_increaseTime", [120]);
-      await network.provider.send("evm_mine", []);
-
-      // Make a donation
-      const donationAmount = 225n * 10n ** 6n;
-      await mintAndWrap(usdt, cUsdt, signers.alice, donationAmount);
-
-      const encodedFundId = ethers.AbiCoder.defaultAbiCoder().encode(["uint256"], [FUND_ID]);
-      const encrypted = await fhevm
-        .createEncryptedInput(cUsdtAddress, signers.alice.address)
-        .add64(donationAmount)
-        .encrypt();
-
-      await cUsdt
-        .connect(signers.alice)
-        ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](
-          fundAddress,
-          encrypted.handles[0],
-          encrypted.inputProof,
-          encodedFundId,
-        );
-    });
-
-    it("should allow creator to request reveal for a token", async function () {
-      await expect(fund.requestReveal(FUND_ID, cUsdtAddress))
-        .to.emit(fund, "RevealRequested")
-        .withArgs(FUND_ID, cUsdtAddress, signers.deployer.address, (value: bigint) => value > 0n);
-    });
-
-    it("should allow admin to request reveal", async function () {
-      await fund.addAdmin(FUND_ID, signers.bob.address);
-      await expect(fund.connect(signers.bob).requestReveal(FUND_ID, cUsdtAddress)).to.emit(fund, "RevealRequested");
-    });
-
-    it("should revert reveal request from unauthorized user", async function () {
-      await expect(
-        fund.connect(signers.carol).requestReveal(FUND_ID, cUsdtAddress),
-      ).to.be.revertedWithCustomError(fund, "NotAuthorized");
-    });
-
-    it("should allow owner to reveal total after request", async function () {
-      await fund.requestReveal(FUND_ID, cUsdtAddress);
-      const revealedAmount = 225n * 10n ** 6n;
-
-      await expect(fund.revealTotal(FUND_ID, cUsdtAddress, revealedAmount))
-        .to.emit(fund, "TotalRevealed")
-        .withArgs(FUND_ID, cUsdtAddress, revealedAmount, signers.deployer.address, (value: bigint) => value > 0n);
-
-      expect(await fund.isTokenRevealed(FUND_ID, cUsdtAddress)).to.be.true;
-      expect(await fund.getRevealedTotal(FUND_ID, cUsdtAddress)).to.equal(revealedAmount);
-    });
-
-    it("should revert reveal without prior request", async function () {
-      await expect(
-        fund.revealTotal(FUND_ID, cUsdtAddress, 225n * 10n ** 6n),
-      ).to.be.revertedWithCustomError(fund, "RevealNotRequested");
-    });
-
-    it("should revert reveal from non-owner", async function () {
-      await fund.requestReveal(FUND_ID, cUsdtAddress);
-      await expect(
-        fund.connect(signers.alice).revealTotal(FUND_ID, cUsdtAddress, 225n * 10n ** 6n),
-      ).to.be.revertedWithCustomError(fund, "OnlyOwnerCanReveal");
-    });
-
-    it("should revert double reveal", async function () {
-      await fund.requestReveal(FUND_ID, cUsdtAddress);
-      await fund.revealTotal(FUND_ID, cUsdtAddress, 225n * 10n ** 6n);
-
-      await expect(
-        fund.requestReveal(FUND_ID, cUsdtAddress),
-      ).to.be.revertedWithCustomError(fund, "AlreadyRevealed");
-    });
-  });
-
-  // ===========================================================================
-  //  Withdrawal
-  // ===========================================================================
-
-  describe("Withdrawal", function () {
-    const FUND_ID = 1;
-    const DONATION_AMOUNT = 500n * 10n ** 6n;
+    const DONATION_AMOUNT = 225n * 10n ** 6n;
 
     beforeEach(async function () {
       await createTestFund(fund, signers.recipient.address, 60, 3600);
 
-      await network.provider.send("evm_increaseTime", [120]);
-      await network.provider.send("evm_mine", []);
+      await increaseTime(120);
 
       // Make a donation
       await mintAndWrap(usdt, cUsdt, signers.alice, DONATION_AMOUNT);
@@ -485,15 +424,155 @@ describe("CovalentFund (ERC-7984)", function () {
           encrypted.inputProof,
           encodedFundId,
         );
+    });
 
-      // Reveal
+    it("should not allow reveal requests before the fund ends", async function () {
+      await expect(fund.requestReveal(FUND_ID, cUsdtAddress)).to.be.revertedWithCustomError(fund, "FundStillActive");
+    });
+
+    it("should allow creator to request reveal for a token", async function () {
+      await increaseTime(3600);
+
+      await expect(fund.requestReveal(FUND_ID, cUsdtAddress))
+        .to.emit(fund, "RevealRequested")
+        .withArgs(FUND_ID, cUsdtAddress, signers.deployer.address, (value: bigint) => value > 0n);
+
+      expect(await fund.isRevealRequested(FUND_ID, cUsdtAddress)).to.equal(true);
+    });
+
+    it("should allow admin to request reveal", async function () {
+      await fund.addAdmin(FUND_ID, signers.bob.address);
+      await increaseTime(3600);
+
+      await expect(fund.connect(signers.bob).requestReveal(FUND_ID, cUsdtAddress)).to.emit(fund, "RevealRequested");
+    });
+
+    it("should revert reveal request from unauthorized user", async function () {
+      await increaseTime(3600);
+
+      await expect(
+        fund.connect(signers.carol).requestReveal(FUND_ID, cUsdtAddress),
+      ).to.be.revertedWithCustomError(fund, "NotAuthorized");
+    });
+
+    it("should revert reveal requests when no encrypted total exists", async function () {
+      await createTestFund(fund, signers.recipient.address, 60, 3600);
+      await increaseTime(3600);
+
+      await expect(fund.requestReveal(2, cUsdtAddress)).to.be.revertedWithCustomError(fund, "NoFundsToReveal");
+    });
+
+    it("should allow owner to reveal total after request with a valid proof", async function () {
+      await increaseTime(3600);
       await fund.requestReveal(FUND_ID, cUsdtAddress);
-      await fund.revealTotal(FUND_ID, cUsdtAddress, DONATION_AMOUNT);
+      expect(await fund.isRevealRequested(FUND_ID, cUsdtAddress)).to.equal(true);
+      const { cleartext, decryptionProof } = await publicDecryptFundTotal(fund, FUND_ID, cUsdtAddress);
+
+      await expect(fund.revealTotal(FUND_ID, cUsdtAddress, cleartext, decryptionProof))
+        .to.emit(fund, "TotalRevealed")
+        .withArgs(FUND_ID, cUsdtAddress, cleartext, signers.deployer.address, (value: bigint) => value > 0n);
+
+      expect(await fund.isTokenRevealed(FUND_ID, cUsdtAddress)).to.be.true;
+      expect(await fund.isRevealRequested(FUND_ID, cUsdtAddress)).to.equal(false);
+      expect(await fund.getRevealedTotal(FUND_ID, cUsdtAddress)).to.equal(cleartext);
+    });
+
+    it("should revert reveal without prior request", async function () {
+      await increaseTime(3600);
+
+      await expect(
+        fund.revealTotal(FUND_ID, cUsdtAddress, DONATION_AMOUNT, "0x"),
+      ).to.be.revertedWithCustomError(fund, "RevealNotRequested");
+    });
+
+    it("should revert reveal from non-owner", async function () {
+      await increaseTime(3600);
+      await fund.requestReveal(FUND_ID, cUsdtAddress);
+      const { cleartext, decryptionProof } = await publicDecryptFundTotal(fund, FUND_ID, cUsdtAddress);
+
+      await expect(
+        fund.connect(signers.alice).revealTotal(FUND_ID, cUsdtAddress, cleartext, decryptionProof),
+      ).to.be.revertedWithCustomError(fund, "OnlyOwnerCanReveal");
+    });
+
+    it("should revert double reveal", async function () {
+      await increaseTime(3600);
+      await fund.requestReveal(FUND_ID, cUsdtAddress);
+      const { cleartext, decryptionProof } = await publicDecryptFundTotal(fund, FUND_ID, cUsdtAddress);
+      await fund.revealTotal(FUND_ID, cUsdtAddress, cleartext, decryptionProof);
+
+      await expect(
+        fund.requestReveal(FUND_ID, cUsdtAddress),
+      ).to.be.revertedWithCustomError(fund, "AlreadyRevealed");
+    });
+
+    it("should revert when the cleartext does not match the verified decryption proof", async function () {
+      await increaseTime(3600);
+      await fund.requestReveal(FUND_ID, cUsdtAddress);
+      const { cleartext, decryptionProof } = await publicDecryptFundTotal(fund, FUND_ID, cUsdtAddress);
+
+      await expect(fund.revealTotal(FUND_ID, cUsdtAddress, cleartext - 1n, decryptionProof)).to.be.reverted;
+    });
+
+    it("should revert when the proof payload is malformed after a valid reveal request", async function () {
+      await increaseTime(3600);
+      await fund.requestReveal(FUND_ID, cUsdtAddress);
+      const { cleartext } = await publicDecryptFundTotal(fund, FUND_ID, cUsdtAddress);
+
+      await expect(fund.revealTotal(FUND_ID, cUsdtAddress, cleartext, "0x1234")).to.be.reverted;
+    });
+
+    it("should not let donors decrypt the running aggregate before reveal is requested", async function () {
+      const encryptedTotal = await fund.getEncryptedTotal(FUND_ID, cUsdtAddress);
+
+      let decryptionFailed = false;
+      try {
+        await fhevm.userDecryptEuint(FhevmType.euint64, encryptedTotal, fundAddress, signers.alice);
+      } catch {
+        decryptionFailed = true;
+      }
+
+      expect(decryptionFailed).to.equal(true);
+    });
+  });
+
+  // ===========================================================================
+  //  Withdrawal
+  // ===========================================================================
+
+  describe("Withdrawal", function () {
+    const FUND_ID = 1;
+    const DONATION_AMOUNT = 500n * 10n ** 6n;
+
+    beforeEach(async function () {
+      await createTestFund(fund, signers.recipient.address, 60, 3600);
+
+      await increaseTime(120);
+
+      // Make a donation
+      await mintAndWrap(usdt, cUsdt, signers.alice, DONATION_AMOUNT);
+
+      const encodedFundId = ethers.AbiCoder.defaultAbiCoder().encode(["uint256"], [FUND_ID]);
+      const encrypted = await fhevm
+        .createEncryptedInput(cUsdtAddress, signers.alice.address)
+        .add64(DONATION_AMOUNT)
+        .encrypt();
+
+      await cUsdt
+        .connect(signers.alice)
+        ["confidentialTransferAndCall(address,bytes32,bytes,bytes)"](
+          fundAddress,
+          encrypted.handles[0],
+          encrypted.inputProof,
+          encodedFundId,
+        );
     });
 
     it("should allow withdrawal after reveal and fund end", async function () {
-      await network.provider.send("evm_increaseTime", [3600]);
-      await network.provider.send("evm_mine", []);
+      await increaseTime(3600);
+      await fund.requestReveal(FUND_ID, cUsdtAddress);
+      const { cleartext, decryptionProof } = await publicDecryptFundTotal(fund, FUND_ID, cUsdtAddress);
+      await fund.revealTotal(FUND_ID, cUsdtAddress, cleartext, decryptionProof);
 
       await expect(fund.withdraw(FUND_ID, cUsdtAddress))
         .to.emit(fund, "Withdrawal")
@@ -507,8 +586,7 @@ describe("CovalentFund (ERC-7984)", function () {
     it("should revert withdrawal before reveal", async function () {
       // Create a second fund without reveal
       await createTestFund(fund, signers.recipient.address, 60, 3600);
-      await network.provider.send("evm_increaseTime", [3700]);
-      await network.provider.send("evm_mine", []);
+      await increaseTime(3700);
 
       await expect(fund.withdraw(2, cUsdtAddress)).to.be.revertedWithCustomError(fund, "TotalMustBeRevealed");
     });
@@ -660,19 +738,17 @@ describe("CovalentFund (ERC-7984)", function () {
       const tokens = await fund.getFundTokens(1);
       expect(tokens).to.include(cUsdtAddress);
 
-      // 6. Admin requests reveal
-      const expectedTotal = 225n * 10n ** 6n; // 100 + 50 + 75
+      // 6. Advance time past fund end and request reveal
+      await increaseTime(7200);
       await fund.requestReveal(1, cUsdtAddress);
 
-      // 7. Owner reveals the total (simulating MCP decryption)
-      await fund.revealTotal(1, cUsdtAddress, expectedTotal);
+      // 7. Owner reveals the total with a verified decryption proof
+      const { cleartext, decryptionProof } = await publicDecryptFundTotal(fund, 1, cUsdtAddress);
+      await fund.revealTotal(1, cUsdtAddress, cleartext, decryptionProof);
       expect(await fund.isTokenRevealed(1, cUsdtAddress)).to.be.true;
-      expect(await fund.getRevealedTotal(1, cUsdtAddress)).to.equal(expectedTotal);
+      expect(await fund.getRevealedTotal(1, cUsdtAddress)).to.equal(cleartext);
 
-      // 8. Advance time past fund end and withdraw
-      await network.provider.send("evm_increaseTime", [7200]);
-      await network.provider.send("evm_mine", []);
-
+      // 8. Withdraw the revealed total to the fund recipient
       await fund.withdraw(1, cUsdtAddress);
       f = await fund.getFund(1);
       expect(f.active).to.be.false;

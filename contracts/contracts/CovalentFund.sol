@@ -42,6 +42,7 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
     error InvalidToken();
     error InvalidFundId();
     error NoDirectETH();
+    error NoFundsToReveal();
 
     // -------------------------------------------------------------------------
     // State
@@ -142,6 +143,12 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
     }
 
     /// @inheritdoc ICovalentFund
+    function isRevealRequested(uint256 fundId, address token) external view override returns (bool) {
+        if (_funds[fundId].id == 0) revert FundDoesNotExist();
+        return _revealRequests[fundId][token];
+    }
+
+    /// @inheritdoc ICovalentFund
     function getFundTokens(uint256 fundId) external view override returns (address[] memory) {
         if (_funds[fundId].id == 0) revert FundDoesNotExist();
         return _fundTokens[fundId];
@@ -194,7 +201,6 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
         // Homomorphic addition
         euint64 newTotal = FHE.add(currentTotal, amount);
         FHE.allowThis(newTotal);
-        FHE.allow(newTotal, from);
         _encryptedTotals[fundId][token] = newTotal;
 
         fund.donationCount++;
@@ -217,25 +223,46 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
         Fund storage fund = _funds[fundId];
         if (fund.id == 0) revert FundDoesNotExist();
         if (!_admins[fundId][msg.sender] && msg.sender != fund.creator) revert NotAuthorized();
+        if (block.timestamp <= fund.endTime) revert FundStillActive();
         if (_tokenRevealed[fundId][token]) revert AlreadyRevealed();
 
+        euint64 encryptedTotal = _encryptedTotals[fundId][token];
+        if (!FHE.isInitialized(encryptedTotal)) revert NoFundsToReveal();
+
+        FHE.makePubliclyDecryptable(encryptedTotal);
         _revealRequests[fundId][token] = true;
 
         emit RevealRequested(fundId, token, msg.sender, block.timestamp);
     }
 
     /// @inheritdoc ICovalentFund
-    function revealTotal(uint256 fundId, address token, uint256 decryptedTotal) external override {
-        if (_funds[fundId].id == 0) revert FundDoesNotExist();
+    function revealTotal(
+        uint256 fundId,
+        address token,
+        uint64 decryptedTotal,
+        bytes calldata decryptionProof
+    ) external override {
+        Fund storage fund = _funds[fundId];
+        if (fund.id == 0) revert FundDoesNotExist();
+        if (block.timestamp <= fund.endTime) revert FundStillActive();
         if (!_revealRequests[fundId][token]) revert RevealNotRequested();
         if (_tokenRevealed[fundId][token]) revert AlreadyRevealed();
         if (msg.sender != owner()) revert OnlyOwnerCanReveal();
 
-        _revealedTotals[fundId][token] = decryptedTotal;
+        euint64 encryptedTotal = _encryptedTotals[fundId][token];
+        if (!FHE.isInitialized(encryptedTotal)) revert NoFundsToReveal();
+
+        bytes32[] memory handles = new bytes32[](1);
+        handles[0] = euint64.unwrap(encryptedTotal);
+
+        bytes memory cleartexts = abi.encode(decryptedTotal);
+        FHE.checkSignatures(handles, cleartexts, decryptionProof);
+
+        _revealedTotals[fundId][token] = uint256(decryptedTotal);
         _tokenRevealed[fundId][token] = true;
         _revealRequests[fundId][token] = false;
 
-        emit TotalRevealed(fundId, token, decryptedTotal, msg.sender, block.timestamp);
+        emit TotalRevealed(fundId, token, uint256(decryptedTotal), msg.sender, block.timestamp);
     }
 
     /**
@@ -250,8 +277,8 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
         Fund storage fund = _funds[fundId];
         if (fund.id == 0) revert FundDoesNotExist();
         if (!_admins[fundId][msg.sender] && msg.sender != fund.creator) revert NotAuthorized();
-        if (!_tokenRevealed[fundId][token]) revert TotalMustBeRevealed();
         if (block.timestamp <= fund.endTime && fund.active) revert FundStillActive();
+        if (!_tokenRevealed[fundId][token]) revert TotalMustBeRevealed();
         if (_revealedTotals[fundId][token] == 0) revert NoFundsToWithdraw();
 
         uint256 amount = _revealedTotals[fundId][token];

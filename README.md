@@ -4,7 +4,7 @@
 
 **Built for the Zama Developer Program Mainnet Season 1 — Builder Track**
 
-Covalent enables verifiable fundraising without revealing donor identities or donation amounts. Donors Shield standard ERC-20 tokens (USDT) into confidential ERC-7984 tokens (cUSDT), then donate encrypted amounts on-chain. Only aggregated totals may be revealed through the Managed Control Process (MCP), ensuring individual donations remain private forever.
+Covalent enables verifiable fundraising without revealing donor identities or donation amounts. Donors shield standard ERC-20 tokens (USDT) into confidential ERC-7984 tokens (cUSDT), then donate encrypted amounts on-chain. Only aggregated totals may be revealed through a proof-verified reveal flow, ensuring individual donations remain private forever.
 
 ---
 
@@ -13,10 +13,10 @@ Covalent enables verifiable fundraising without revealing donor identities or do
 - **ERC-7984 Confidential Tokens** — Donors Shield USDT into cUSDT (encrypted ERC-7984) and donate via `confidentialTransferAndCall`
 - **FHE On-Chain Arithmetic** — Encrypted donations are summed using `FHE.add()` on `euint64` ciphertexts — no decryption, no plaintext
 - **Multi-Token Support** — Per-fund, per-token encrypted totals with owner-managed token whitelist
-- **Aggregated Reveals Only** — Authorized admins can reveal the total; individual amounts remain encrypted permanently
-- **Shield & UnShield** — Admin panel includes a Token Manager for Shieldping USDT → cUSDT and unShieldping cUSDT → USDT
+- **Aggregated Reveals Only** — Authorized admins can request a public reveal, and the owner finalizes it with a verified decryption proof; individual amounts remain encrypted permanently
+- **Shield & Unshield** — Admin panel includes a Token Manager for shielding USDT → cUSDT and unshielding cUSDT → USDT
 - **Role-Based Access** — Creator and admin roles control reveal requests and fund management
-- **Full Test Suite** — 44 passing tests (40 CovalentFund + 3 FHECounter + 1 pending Sepolia-only)
+- **Full Test Suite** — 49 passing tests (46 CovalentFund + 3 FHECounter + 1 pending Sepolia-only)
 
 ## Architecture
 
@@ -32,7 +32,7 @@ Covalent enables verifiable fundraising without revealing donor identities or do
 │  Token Layer (ERC-7984 + ERC-20)                      │
 │  • MockUSDT.sol — ERC-20 test token (6 decimals)     │
 │  • ConfidentialUSDT.sol — ERC7984ERC20Wrapper (cUSDT) │
-│  • Shield / unShield / confidentialTransfer              │
+│  • Shield / unshield / confidentialTransfer              │
 └──────────────────────┬────────────────────────────────┘
                        │ onConfidentialTransferReceived
 ┌──────────────────────▼────────────────────────────────┐
@@ -56,11 +56,11 @@ See [Architecture Documentation](./docs/architecture.md) for the public overview
 
 ```
 CovalentFund (ERC-7984)
-  Token Shieldping (2 tests)          ✔ Shield USDT → cUSDT, verify underlying
+  Token Shielding (2 tests)         ✔ shield USDT → cUSDT, verify underlying
   Fund Creation (5 tests)           ✔ create, events, validation, ID increment
   Token Whitelist (7 tests)         ✔ add/remove, events, owner-only, edge cases
   Confidential Donations (5 tests)  ✔ confidentialTransferAndCall, multi-donor, events
-  Reveal Process (6 tests)          ✔ per-token request → reveal → authorization
+  Reveal Process (12 tests)         ✔ request gating, proof-verified reveal, ACL/privacy regressions
   Withdrawal (3 tests)              ✔ post-reveal withdraw, pre-reveal revert
   Admin Management (7 tests)        ✔ add/remove/creator-only
   Edge Cases (2 tests)              ✔ reject ETH, non-existent fund
@@ -68,7 +68,7 @@ CovalentFund (ERC-7984)
 
 FHECounter (3 tests)                ✔ reference implementation
 
-44 passing, 0 failing, 1 pending (Sepolia-only)
+49 passing, 0 failing, 1 pending (Sepolia-only)
 ```
 
 ## Project Structure
@@ -88,7 +88,7 @@ covalent/
 │   │   ├── deploy.ts                 # FHECounter deploy script
 │   │   └── deployCovalentFund.ts     # Full deploy: MockUSDT → cUSDT → CovalentFund
 │   ├── test/
-│   │   ├── CovalentFund.ts           # 40 tests — ERC-7984 donation lifecycle
+│   │   ├── CovalentFund.ts           # 46 tests — ERC-7984 donation lifecycle
 │   │   ├── FHECounter.ts             # Reference FHE tests
 │   │   └── FHECounterSepolia.ts      # Sepolia-only tests
 │   ├── hardhat.config.ts             # Solidity 0.8.27, FHEVM plugin, dotenv
@@ -100,7 +100,7 @@ covalent/
 │   │   ├── providers.tsx             # wagmi + React Query
 │   │   ├── components/
 │   │   │   ├── DonateCard.tsx        # Multi-step: approve → Shield → encrypt → donate
-│   │   │   ├── TokenManager.tsx      # Shield/unShield USDT ↔ cUSDT
+│   │   │   ├── TokenManager.tsx      # Shield/unshield USDT ↔ cUSDT
 │   │   │   ├── FundStats.tsx         # Encrypted totals, donation count
 │   │   │   ├── RevealButton.tsx      # Request reveal UI
 │   │   │   ├── Navbar.tsx            # Navigation
@@ -155,7 +155,7 @@ npm install
 # Compile contracts
 npx hardhat compile
 
-# Run tests (44 passing, FHEVM mock)
+# Run tests (49 passing, FHEVM mock)
 npx hardhat test
 ```
 
@@ -199,8 +199,8 @@ npm run dev
 | `getRevealedTotal(fundId, token)` | Get per-token revealed total |
 | `isTokenRevealed(fundId, token)` | Check if a token's total has been revealed |
 | `getFundTokens(fundId)` | List all tokens donated to a fund |
-| `requestReveal(fundId, token)` | Admin requests per-token reveal |
-| `revealTotal(fundId, token, total)` | Owner/MCP submits decrypted per-token aggregate |
+| `requestReveal(fundId, token)` | Admin requests a public decryption for a per-token aggregate after the fund closes |
+| `revealTotal(fundId, token, total, decryptionProof)` | Owner/MCP submits a proof-verified decrypted per-token aggregate |
 | `withdraw(fundId, token)` | Transfer cUSDT to recipient after reveal (admin only) |
 | `whitelistToken(token)` | Owner adds an ERC-7984 token to the whitelist |
 | `addAdmin(fundId, admin)` | Add admin to a fund |
@@ -238,19 +238,19 @@ function onConfidentialTransferReceived(
 | [Data Flow Diagram](./internal-docs/dfd.md) | Data flows across all system layers |
 | [Threat Model](./internal-docs/threat-model.md) | Security analysis and mitigations |
 | [Zama Integration Guide](./internal-docs/zama-integration.md) | FHEVM integration patterns and best practices |
-| [Video Demo](./internal-docs/video.md) | 2-minute video requirement and script link |
+| [Video Demo](./internal-docs/video.md) | 3-minute video requirement and script link |
 
 ## Technology Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Smart Contracts | Solidity 0.8.27, @fhevm/solidity 0.9.1, @openzeppelin/confidential-contracts ^0.3.1, OpenZeppelin Contracts |
+| Smart Contracts | Solidity 0.8.27, @fhevm/solidity 0.11.0, @openzeppelin/confidential-contracts ^0.3.1, OpenZeppelin Contracts |
 | Token Standard | ERC-7984 (Confidential Tokens), ERC-20, ERC7984ERC20Wrapper |
 | FHE Runtime | Zama FHEVM (hardhat mock for local, Sepolia for testnet) |
-| Testing | Mocha, Chai, @fhevm/hardhat-plugin ^0.4.0 |
+| Testing | Mocha, Chai, @fhevm/hardhat-plugin 0.4.1 |
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | Wallet | wagmi 2.x, viem 2.x, ethers 6.x |
-| FHE Client | @zama-fhe/relayer-sdk ^0.4.0 |
+| FHE Client | @zama-fhe/relayer-sdk 0.4.x |
 
 ## License
 

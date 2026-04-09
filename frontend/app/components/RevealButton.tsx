@@ -65,8 +65,8 @@ export default function RevealButton({ fundId, onReveal }: RevealButtonProps) {
 
       {success && (
         <p className="text-xs text-brand-muted text-center">
-          Only the combined total will be shown — individual amounts stay
-          private.
+          The total is now queued for public decryption. The contract owner must
+          submit the verified proof to finalize the reveal.
         </p>
       )}
     </div>

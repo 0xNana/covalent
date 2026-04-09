@@ -9,10 +9,14 @@ import {
   getEncryptedTotal,
   getRevealedTotal,
   isTokenRevealed,
+  isRevealRequested,
   checkIsAdmin,
+  getContractOwner,
+  revealTotalWithProof,
   withdrawFund,
   type FundData,
 } from "@/app/lib/contract";
+import { initFHEVM, publicDecryptFundHandle } from "@/app/lib/fheClient";
 import RevealButton from "@/app/components/RevealButton";
 import FundStats from "@/app/components/FundStats";
 
@@ -20,6 +24,7 @@ interface TokenStats {
   encryptedTotalHex: string;
   revealedTotal: number;
   revealed: boolean;
+  revealRequested: boolean;
 }
 
 type AdminFund = FundData & TokenStats;
@@ -29,9 +34,11 @@ export default function AdminPage() {
   const [fundIdInput, setFundIdInput] = useState("");
   const [fund, setFund] = useState<AdminFund | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [finalizeLoading, setFinalizeLoading] = useState(false);
 
   const loadFund = useCallback(async () => {
     if (!fundIdInput || !address) return;
@@ -47,17 +54,22 @@ export default function AdminPage() {
         encryptedTotalHex,
         revealed,
         revealedTotal,
+        revealRequested,
         adminStatus,
+        contractOwner,
       ] = await Promise.all([
         getFund(fundId),
         getEncryptedTotal(fundId).catch(() => "0x" + "0".repeat(64)),
         isTokenRevealed(fundId).catch(() => false),
         getRevealedTotal(fundId).catch(() => 0),
+        isRevealRequested(fundId).catch(() => false),
         checkIsAdmin(fundId, address),
+        getContractOwner(),
       ]);
 
-      setFund({ ...fundData, encryptedTotalHex, revealed, revealedTotal });
+      setFund({ ...fundData, encryptedTotalHex, revealed, revealedTotal, revealRequested });
       setIsAdmin(adminStatus);
+      setIsOwner(contractOwner.toLowerCase() === address.toLowerCase());
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to load fund";
@@ -90,12 +102,35 @@ export default function AdminPage() {
     }
   };
 
+  const handleFinalizeReveal = async () => {
+    if (!fund) return;
+    setFinalizeLoading(true);
+    setError(null);
+
+    try {
+      await initFHEVM();
+      const encryptedTotalHex = await getEncryptedTotal(fund.id);
+      const { decryptedValue, decryptionProof } = await publicDecryptFundHandle(encryptedTotalHex);
+      await revealTotalWithProof(fund.id, decryptedValue, decryptionProof);
+      await loadFund();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to finalize reveal";
+      setError(message);
+    } finally {
+      setFinalizeLoading(false);
+    }
+  };
+
   const formattedRevealedTotal = fund?.revealed
     ? (fund.revealedTotal / USDT_DECIMALS_DIVISOR).toLocaleString(undefined, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })
     : "0";
+  const nowSec = Math.floor(Date.now() / 1000);
+  const hasEnded = fund ? nowSec > fund.endTime : false;
+  const canSeeActions = isAdmin || isOwner;
 
   if (!isConnected) {
     return (
@@ -224,13 +259,54 @@ export default function AdminPage() {
           )}
 
           {/* Admin actions */}
-          {isAdmin && (
+          {canSeeActions && (
             <div className="card p-6 space-y-4">
               <h3 className="font-bold text-brand-dark">Actions</h3>
 
               {/* Reveal */}
-              {!fund.revealed && (
+              {!fund.revealed && hasEnded && !fund.revealRequested && isAdmin && (
                 <RevealButton fundId={fund.id} onReveal={() => loadFund()} />
+              )}
+
+              {!fund.revealed && !hasEnded && isAdmin && (
+                <div className="text-sm text-brand-muted bg-gray-50 rounded-lg p-4">
+                  Reveal requests open after the fund end time. Donations remain
+                  private and active until then.
+                </div>
+              )}
+
+              {!fund.revealed && hasEnded && !fund.revealRequested && isOwner && !isAdmin && (
+                <div className="text-sm text-brand-muted bg-gray-50 rounded-lg p-4">
+                  The contract owner can finalize reveals, but a fund admin must
+                  request the reveal first.
+                </div>
+              )}
+
+              {!fund.revealed && fund.revealRequested && isOwner && (
+                <button
+                  onClick={handleFinalizeReveal}
+                  disabled={finalizeLoading}
+                  className="w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {finalizeLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Finalizing...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-icons">verified</span>
+                      Finalize Reveal
+                    </>
+                  )}
+                </button>
+              )}
+
+              {!fund.revealed && fund.revealRequested && !isOwner && (
+                <div className="text-sm text-brand-muted bg-gray-50 rounded-lg p-4">
+                  Reveal requested. Waiting for the contract owner wallet to
+                  submit the verified decryption proof.
+                </div>
               )}
 
               {/* Withdraw */}
