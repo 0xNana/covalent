@@ -1,71 +1,88 @@
 "use client";
 
-const USDT_DECIMALS_DIVISOR = 1_000_000;
+import { formatUsdtAmount } from "@/app/lib/fund-ui";
 
 interface FundStatsProps {
-  encryptedTotal: string | null;
   donationCount: number;
-  revealedTotal?: number;
+  goalAmount: bigint;
+  revealedTotal?: bigint;
   revealed?: boolean;
-  tokenSymbol?: string;
+  revealRequested?: boolean;
 }
 
 export default function FundStats({
   donationCount,
-  revealedTotal = 0,
+  goalAmount,
+  revealedTotal = 0n,
   revealed = false,
+  revealRequested = false,
 }: FundStatsProps) {
-  const formattedTotal = revealed
-    ? (revealedTotal / USDT_DECIMALS_DIVISOR).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    : null;
+  const progressPercent =
+    goalAmount > 0n && revealed
+      ? Number((revealedTotal * 10000n) / goalAmount) / 100
+      : 0;
 
   return (
     <div className="card p-6">
-      <div className="grid grid-cols-2 gap-6">
-        {/* Total raised */}
-        <div>
-          <p className="text-xs font-semibold text-brand-muted uppercase tracking-wide mb-1">
-            Total Raised
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-brand-border bg-gray-50 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-brand-muted">
+            Goal
           </p>
-          {revealed && formattedTotal ? (
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-brand-green">
-                ${formattedTotal}
-              </span>
-              <span className="material-icons text-brand-green text-lg">
-                check_circle
-              </span>
-            </div>
+          <p className="mt-1 text-2xl font-extrabold text-brand-dark">
+            {formatUsdtAmount(goalAmount)}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-brand-border bg-white p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-brand-muted">
+            Raised
+          </p>
+          {revealed ? (
+            <p className="mt-1 text-2xl font-extrabold text-brand-green">
+              {formatUsdtAmount(revealedTotal)}
+            </p>
           ) : (
             <div>
-              <span className="text-3xl font-extrabold text-brand-dark font-mono tracking-wider">
+              <p className="mt-1 font-mono text-2xl font-black tracking-[0.25em] text-brand-dark">
                 ****
-              </span>
-              <p className="text-xs text-brand-muted mt-1">Private</p>
+              </p>
+              <p className="mt-1 text-xs text-brand-muted">Encrypted until reveal</p>
             </div>
           )}
         </div>
 
-        {/* Donors */}
-        <div>
-          <p className="text-xs font-semibold text-brand-muted uppercase tracking-wide mb-1">
+        <div className="rounded-2xl border border-brand-border bg-gray-50 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-brand-muted">
             Donors
           </p>
-          <span className="text-3xl font-extrabold text-brand-dark">
+          <p className="mt-1 text-2xl font-extrabold text-brand-dark">
             {donationCount}
-          </span>
+          </p>
         </div>
       </div>
 
-      {/* Privacy notice */}
-      <div className="mt-5 flex items-center gap-2 p-3 bg-brand-green-light rounded-lg">
-        <span className="material-icons text-brand-green text-sm">lock</span>
-        <p className="text-xs text-green-700">
-          Individual donation amounts are always private.
-        </p>
+      <div className="mt-5 rounded-2xl border border-emerald-200 bg-brand-green-light p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-brand-green">
+            {revealed
+              ? `Campaign progress: ${Math.min(progressPercent, 100).toFixed(2)}% of goal revealed`
+              : revealRequested
+                ? "Reveal requested. Waiting for proof-verified total."
+                : "Campaign total is still confidential."}
+          </p>
+          <span className="material-icons text-brand-green" aria-hidden="true">
+            {revealed ? "check_circle" : revealRequested ? "hourglass_top" : "lock"}
+          </span>
+        </div>
+        {revealed && (
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/80">
+            <div
+              className="h-full rounded-full bg-brand-green transition-[width] duration-300"
+              style={{ width: `${Math.min(progressPercent, 100)}%` }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

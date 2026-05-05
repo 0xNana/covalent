@@ -3,11 +3,30 @@
 import { useState } from "react";
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
+
 import { createFund } from "@/app/lib/contract";
+import {
+  formatFundDateTime,
+  formatUsdtAmount,
+  getFundShareUrl,
+  getFundTheme,
+  parseUsdtAmount,
+} from "@/app/lib/fund-ui";
 
 const START_DELAY_SECONDS = 60;
 const SECONDS_PER_DAY = 86_400;
 const MS_PER_SECOND = 1_000;
+
+const CATEGORIES = [
+  "Media",
+  "Legal",
+  "Labor",
+  "Health",
+  "Civic",
+  "Education",
+  "Emergency",
+  "Community",
+];
 
 export default function CreateFundPage() {
   const { isConnected } = useAccount();
@@ -15,98 +34,138 @@ export default function CreateFundPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("Media");
+  const [goalAmount, setGoalAmount] = useState("5000");
   const [recipient, setRecipient] = useState("");
   const [durationDays, setDurationDays] = useState("30");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdFundId, setCreatedFundId] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const theme = getFundTheme(category);
+  const now = Math.floor(Date.now() / MS_PER_SECOND);
+  const previewStart = now + START_DELAY_SECONDS;
+  const previewEnd =
+    previewStart + (Number.parseInt(durationDays || "0", 10) || 0) * SECONDS_PER_DAY;
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
 
     if (!isConnected) {
-      setError("Please connect your wallet first");
+      setError("Connect your wallet before creating a campaign.");
       return;
     }
 
     if (!title.trim() || !recipient.trim()) {
-      setError("Title and recipient address are required");
+      setError("Title and recipient address are required.");
       return;
     }
 
     if (!/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
-      setError("Invalid recipient address");
+      setError("Enter a valid recipient wallet address.");
       return;
     }
 
-    const parsedDuration = parseInt(durationDays, 10);
-    if (isNaN(parsedDuration) || parsedDuration < 1 || parsedDuration > 365) {
-      setError("Duration must be between 1 and 365 days");
+    const parsedDuration = Number.parseInt(durationDays, 10);
+    if (Number.isNaN(parsedDuration) || parsedDuration < 1 || parsedDuration > 365) {
+      setError("Choose a campaign duration between 1 and 365 days.");
+      return;
+    }
+
+    let parsedGoalAmount: bigint;
+    try {
+      parsedGoalAmount = parseUsdtAmount(goalAmount);
+    } catch {
+      setError("Enter a valid USD goal amount using numbers only.");
+      return;
+    }
+
+    if (parsedGoalAmount <= 0n) {
+      setError("Goal amount must be greater than zero.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const now = Math.floor(Date.now() / MS_PER_SECOND);
-      const startTime = now + START_DELAY_SECONDS;
-      const endTime = now + parsedDuration * SECONDS_PER_DAY;
-
+      const startTime = Math.floor(Date.now() / MS_PER_SECOND) + START_DELAY_SECONDS;
+      const endTime = startTime + parsedDuration * SECONDS_PER_DAY;
       const fundId = await createFund({
-        title: title.trim(),
-        description: description.trim(),
+        title,
+        description,
+        category,
+        goalAmount: parsedGoalAmount,
         recipient,
         startTime,
         endTime,
       });
 
       setCreatedFundId(fundId);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create fund";
-      setError(message);
+    } catch (createError: unknown) {
+      setError(
+        createError instanceof Error ? createError.message : "Failed to create fund.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   if (createdFundId !== null) {
+    const shareUrl = getFundShareUrl(createdFundId);
+
     return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <div className="card p-10 text-center max-w-md w-full">
-          <div className="w-16 h-16 bg-brand-green-light rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="material-icons text-brand-green text-3xl">
-              check_circle
-            </span>
+      <div className="mx-auto max-w-2xl px-4 py-12">
+        <div className="card p-10 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-green-light">
+            <span className="material-icons text-3xl text-brand-green">check_circle</span>
           </div>
-          <h2 className="text-2xl font-extrabold text-brand-dark mb-1">
-            Fund Created!
-          </h2>
-          <p className="text-brand-muted text-sm mb-2">Your fund ID is</p>
-          <p className="text-5xl font-black text-brand-green mb-6">
-            {createdFundId}
+          <h1 className="text-3xl font-extrabold text-brand-dark">Campaign Created</h1>
+          <p className="mt-2 text-sm text-brand-muted">
+            Your confidential campaign is live and ready to share.
           </p>
-          <p className="text-sm text-brand-muted mb-6">
-            Share this ID with donors so they can contribute to your fund.
-          </p>
-          <div className="flex gap-3 justify-center">
+
+          <div className="mt-8 grid gap-4 rounded-2xl border border-brand-border bg-gray-50 p-5 text-left sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-brand-muted">
+                Fund ID
+              </p>
+              <p className="mt-1 text-4xl font-black text-brand-green">{createdFundId}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-brand-muted">
+                Share URL
+              </p>
+              <p className="mt-1 break-all text-sm font-medium text-brand-dark">{shareUrl}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <button
-              onClick={() => router.push(`/fund/${createdFundId}`)}
-              className="btn-primary px-6 py-3 text-sm"
-            >
-              View Fund
-            </button>
-            <button
-              onClick={() => {
-                setCreatedFundId(null);
-                setTitle("");
-                setDescription("");
-                setRecipient("");
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(shareUrl);
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 2000);
               }}
               className="btn-outline px-6 py-3 text-sm"
             >
-              Create Another
+              {copied ? "Campaign Link Copied" : "Copy Campaign Link"}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/fund/${createdFundId}`)}
+              className="btn-primary px-6 py-3 text-sm"
+            >
+              View Campaign Page
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/admin?fund=${createdFundId}`)}
+              className="btn-primary px-6 py-3 text-sm"
+            >
+              Open Dashboard
             </button>
           </div>
         </div>
@@ -115,122 +174,253 @@ export default function CreateFundPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-10">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-extrabold text-brand-dark mb-1">
-          Start a Fund
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mb-8 max-w-2xl space-y-2">
+        <h1 className="heading-balance text-3xl font-extrabold text-brand-dark">
+          Start a Confidential Campaign
         </h1>
-        <p className="text-brand-muted text-sm">
-          Set up a fundraiser where donations are private.
+        <p className="text-sm leading-relaxed text-brand-muted">
+          Define a real campaign identity, set a goal, and publish a shareable
+          campaign page that still keeps donation amounts private.
         </p>
       </div>
 
-      {/* Connect prompt */}
-      {!isConnected && (
-        <div className="card border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700 flex items-center gap-3 mb-6">
-          <span className="material-icons text-lg">
-            account_balance_wallet
-          </span>
-          Please connect your wallet to create a fund.
-        </div>
-      )}
-
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="card p-6 space-y-5">
-        {/* Title */}
-        <div>
-          <label className="block text-sm font-semibold text-brand-dark mb-2">
-            Fund Title *
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="input-field"
-            placeholder="e.g., Support Independent Journalism"
-            disabled={loading || !isConnected}
-            required
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="block text-sm font-semibold text-brand-dark mb-2">
-            Description
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            className="input-field resize-none"
-            placeholder="Describe the purpose of this fund..."
-            disabled={loading || !isConnected}
-          />
-        </div>
-
-        {/* Recipient */}
-        <div>
-          <label className="block text-sm font-semibold text-brand-dark mb-2">
-            Recipient Address *
-          </label>
-          <input
-            type="text"
-            value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
-            className="input-field font-mono text-sm"
-            placeholder="0x..."
-            disabled={loading || !isConnected}
-            required
-          />
-          <p className="mt-1 text-xs text-brand-muted">
-            The wallet that will receive the funds
-          </p>
-        </div>
-
-        {/* Duration */}
-        <div>
-          <label className="block text-sm font-semibold text-brand-dark mb-2">
-            Duration (days)
-          </label>
-          <input
-            type="number"
-            min="1"
-            max="365"
-            value={durationDays}
-            onChange={(e) => setDurationDays(e.target.value)}
-            className="input-field"
-            disabled={loading || !isConnected}
-          />
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="flex items-center gap-2 py-3 px-4 bg-red-50 rounded-lg border border-red-200">
-            <span className="material-icons text-red-500 text-sm">error</span>
-            <span className="text-sm text-red-600">{error}</span>
-          </div>
-        )}
-
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={loading || !isConnected}
-          className="w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Creating Fund...
-            </>
-          ) : (
-            <>
-              <span className="material-icons">add_circle</span>
-              Create Fund
-            </>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <form onSubmit={handleSubmit} className="card space-y-5 p-6 sm:p-8">
+          {!isConnected && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+              Connect a wallet on Sepolia to create a campaign.
+            </div>
           )}
-        </button>
-      </form>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label
+                htmlFor="title"
+                className="mb-2 block text-sm font-semibold text-brand-dark"
+              >
+                Campaign Title
+              </label>
+              <input
+                id="title"
+                name="title"
+                type="text"
+                autoComplete="off"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                className="input-field"
+                placeholder="Support independent reporting in West Africa…"
+                disabled={loading || !isConnected}
+                required
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="category"
+                className="mb-2 block text-sm font-semibold text-brand-dark"
+              >
+                Category
+              </label>
+              <select
+                id="category"
+                name="category"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                className="input-field pr-10"
+                disabled={loading || !isConnected}
+              >
+                {CATEGORIES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="goal"
+                className="mb-2 block text-sm font-semibold text-brand-dark"
+              >
+                Goal Amount (USDT)
+              </label>
+              <input
+                id="goal"
+                name="goal_amount"
+                type="number"
+                min="1"
+                step="0.01"
+                inputMode="decimal"
+                autoComplete="off"
+                value={goalAmount}
+                onChange={(event) => setGoalAmount(event.target.value)}
+                className="input-field"
+                placeholder="5000"
+                disabled={loading || !isConnected}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label
+                htmlFor="description"
+                className="mb-2 block text-sm font-semibold text-brand-dark"
+              >
+                Campaign Story
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                rows={5}
+                autoComplete="off"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="input-field resize-none"
+                placeholder="Explain what the campaign funds, why donors need privacy, and how the recipient will use the total once revealed…"
+                disabled={loading || !isConnected}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label
+                htmlFor="recipient"
+                className="mb-2 block text-sm font-semibold text-brand-dark"
+              >
+                Recipient Wallet Address
+              </label>
+              <input
+                id="recipient"
+                name="recipient"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={recipient}
+                onChange={(event) => setRecipient(event.target.value)}
+                className="input-field font-mono text-sm"
+                placeholder="0x…"
+                disabled={loading || !isConnected}
+                required
+              />
+              <p className="mt-1 text-xs text-brand-muted">
+                This wallet receives the confidential funds after the campaign total is revealed.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="duration"
+                className="mb-2 block text-sm font-semibold text-brand-dark"
+              >
+                Duration (days)
+              </label>
+              <input
+                id="duration"
+                name="duration_days"
+                type="number"
+                min="1"
+                max="365"
+                inputMode="numeric"
+                autoComplete="off"
+                value={durationDays}
+                onChange={(event) => setDurationDays(event.target.value)}
+                className="input-field"
+                disabled={loading || !isConnected}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-brand-border bg-gray-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-brand-muted">
+                Launch Window
+              </p>
+              <p className="mt-1 text-sm font-semibold text-brand-dark">
+                Opens {formatFundDateTime(previewStart)}
+              </p>
+              <p className="mt-1 text-xs text-brand-muted">
+                Ends {formatFundDateTime(previewEnd)}
+              </p>
+            </div>
+          </div>
+
+          {error && (
+            <div
+              aria-live="polite"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || !isConnected}
+            className="btn-primary flex w-full items-center justify-center gap-2 py-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Creating Campaign…
+              </>
+            ) : (
+              <>
+                <span className="material-icons">campaign</span>
+                Publish Campaign
+              </>
+            )}
+          </button>
+        </form>
+
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <div className="overflow-hidden rounded-3xl border border-brand-border bg-white shadow-card">
+            <div className={`relative h-40 bg-gradient-to-r ${theme.gradient}`}>
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.85),transparent_35%),radial-gradient(circle_at_85%_25%,rgba(255,255,255,0.55),transparent_30%)] opacity-90" />
+              <div className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/92 px-3 py-1 text-[11px] font-bold text-brand-dark shadow-sm">
+                <span className="material-icons text-[13px]" aria-hidden="true">
+                  {theme.icon}
+                </span>
+                {category}
+              </div>
+              <div className="absolute bottom-4 left-4 right-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
+                  Campaign Preview
+                </p>
+                <h2 className="mt-1 text-2xl font-extrabold text-white">
+                  {title.trim() || "Your campaign title"}
+                </h2>
+              </div>
+            </div>
+            <div className="space-y-4 p-5">
+              <p className="text-sm leading-relaxed text-brand-muted">
+                {description.trim() ||
+                  "Add a campaign story so donors understand the mission, why privacy matters, and how the revealed total will be used."}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`rounded-xl border px-4 py-3 ${theme.surfaceClass}`}>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-brand-muted">
+                    Goal
+                  </p>
+                  <p className={`mt-1 text-lg font-extrabold ${theme.accentClass}`}>
+                    {(() => {
+                      try {
+                        return formatUsdtAmount(parseUsdtAmount(goalAmount));
+                      } catch {
+                        return "$0.00";
+                      }
+                    })()}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-brand-border bg-gray-50 px-4 py-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-brand-muted">
+                    Privacy
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-brand-dark">
+                    Amount hidden until reveal
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

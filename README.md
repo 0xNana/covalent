@@ -192,7 +192,7 @@ npm run dev
 
 | Function | Description |
 |----------|-------------|
-| `createFund(config)` | Create a fund; config is (recipient, startTime, endTime). Metadata stored client-side. |
+| `createFund(config)` | Create a fund; config includes recipient, timeline, goal amount, title, description, and category. |
 | `onConfidentialTransferReceived(...)` | IERC7984Receiver callback — accepts encrypted donations via cUSDT |
 | `getFund(fundId)` | Get fund info (donationCount, active status) |
 | `getEncryptedTotal(fundId, token)` | Get per-token encrypted total (euint64 handle) |

@@ -6,7 +6,7 @@ import {euint64} from "@fhevm/solidity/lib/FHE.sol";
 /**
  * @title ICovalentFund
  * @notice Interface for the Covalent confidential donation fund contract
- * @dev No strings are stored on-chain. Metadata (title, description) lives client-side.
+ * @dev Fund metadata is stored on-chain so campaigns remain portable across devices.
  *      Donations flow via ERC-7984 confidential tokens (e.g. cUSDT).
  */
 interface ICovalentFund {
@@ -14,14 +14,18 @@ interface ICovalentFund {
     // Structs
     // -------------------------------------------------------------------------
 
-    /// @notice Fund configuration — only on-chain essentials
+    /// @notice Fund configuration used during campaign creation
     struct FundConfig {
         address recipient;
         uint256 startTime;
         uint256 endTime;
+        uint256 goalAmount;
+        string title;
+        string description;
+        string category;
     }
 
-    /// @notice Fund information structure — no strings, no single-token state
+    /// @notice Fund information structure returned to the frontend
     struct Fund {
         uint256 id;
         address recipient;
@@ -30,6 +34,10 @@ interface ICovalentFund {
         uint256 endTime;
         bool active;
         uint256 donationCount;
+        uint256 goalAmount;
+        string title;
+        string description;
+        string category;
     }
 
     // -------------------------------------------------------------------------
@@ -107,6 +115,8 @@ interface ICovalentFund {
     function createFund(FundConfig memory config) external returns (uint256 fundId);
 
     function getFund(uint256 fundId) external view returns (Fund memory fund);
+
+    function getFundCount() external view returns (uint256 count);
 
     // -------------------------------------------------------------------------
     // Per-token queries

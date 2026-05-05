@@ -20,6 +20,10 @@ type Signers = {
 };
 
 const MINT_AMOUNT = 1_000_000n * 10n ** 6n; // 1M USDT (6 decimals)
+const DEFAULT_GOAL = 1_000n * 10n ** 6n;
+const DEFAULT_TITLE = "Independent Journalism Fund";
+const DEFAULT_DESCRIPTION = "Support reporters with private, verifiable donations.";
+const DEFAULT_CATEGORY = "Media";
 
 async function deployFixture(deployer: HardhatEthersSigner) {
   // Deploy MockUSDT
@@ -57,6 +61,10 @@ async function createTestFund(
     recipient,
     startTime: now + startOffset,
     endTime: now + endOffset,
+    goalAmount: DEFAULT_GOAL,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    category: DEFAULT_CATEGORY,
   });
   await tx.wait();
 }
@@ -162,6 +170,10 @@ describe("CovalentFund (ERC-7984)", function () {
       expect(f.creator).to.equal(signers.deployer.address);
       expect(f.active).to.be.true;
       expect(f.donationCount).to.equal(0);
+      expect(f.goalAmount).to.equal(DEFAULT_GOAL);
+      expect(f.title).to.equal(DEFAULT_TITLE);
+      expect(f.description).to.equal(DEFAULT_DESCRIPTION);
+      expect(f.category).to.equal(DEFAULT_CATEGORY);
     });
 
     it("should emit FundCreated event", async function () {
@@ -173,6 +185,10 @@ describe("CovalentFund (ERC-7984)", function () {
           recipient: signers.recipient.address,
           startTime: now + 60,
           endTime: now + 86400,
+          goalAmount: DEFAULT_GOAL,
+          title: DEFAULT_TITLE,
+          description: DEFAULT_DESCRIPTION,
+          category: DEFAULT_CATEGORY,
         }),
       )
         .to.emit(fund, "FundCreated")
@@ -188,6 +204,10 @@ describe("CovalentFund (ERC-7984)", function () {
           recipient: ethers.ZeroAddress,
           startTime: now + 60,
           endTime: now + 86400,
+          goalAmount: DEFAULT_GOAL,
+          title: DEFAULT_TITLE,
+          description: DEFAULT_DESCRIPTION,
+          category: DEFAULT_CATEGORY,
         }),
       ).to.be.revertedWithCustomError(fund, "InvalidRecipient");
     });
@@ -201,6 +221,10 @@ describe("CovalentFund (ERC-7984)", function () {
           recipient: signers.recipient.address,
           startTime: now + 86400,
           endTime: now + 60,
+          goalAmount: DEFAULT_GOAL,
+          title: DEFAULT_TITLE,
+          description: DEFAULT_DESCRIPTION,
+          category: DEFAULT_CATEGORY,
         }),
       ).to.be.revertedWithCustomError(fund, "InvalidTimeRange");
     });
@@ -213,6 +237,41 @@ describe("CovalentFund (ERC-7984)", function () {
       const fund2 = await fund.getFund(2);
       expect(fund1.id).to.equal(1);
       expect(fund2.id).to.equal(2);
+      expect(await fund.getFundCount()).to.equal(2);
+    });
+
+    it("should require a non-empty title", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const now = block!.timestamp;
+
+      await expect(
+        fund.createFund({
+          recipient: signers.recipient.address,
+          startTime: now + 60,
+          endTime: now + 86400,
+          goalAmount: DEFAULT_GOAL,
+          title: "",
+          description: DEFAULT_DESCRIPTION,
+          category: DEFAULT_CATEGORY,
+        }),
+      ).to.be.revertedWithCustomError(fund, "EmptyTitle");
+    });
+
+    it("should require a non-zero goal amount", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const now = block!.timestamp;
+
+      await expect(
+        fund.createFund({
+          recipient: signers.recipient.address,
+          startTime: now + 60,
+          endTime: now + 86400,
+          goalAmount: 0,
+          title: DEFAULT_TITLE,
+          description: DEFAULT_DESCRIPTION,
+          category: DEFAULT_CATEGORY,
+        }),
+      ).to.be.revertedWithCustomError(fund, "InvalidGoalAmount");
     });
   });
 

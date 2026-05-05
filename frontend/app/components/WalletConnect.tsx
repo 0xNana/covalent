@@ -1,11 +1,15 @@
 "use client";
 
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useChainId, useConnect, useDisconnect } from "wagmi";
+import { sepolia } from "wagmi/chains";
 import { injected } from "wagmi/connectors";
 import { useState } from "react";
 
-export default function WalletConnect() {
+import { formatWalletAddress } from "@/app/lib/fund-ui";
+
+export default function WalletConnect({ compact = false }: { compact?: boolean }) {
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
   const [error, setError] = useState<string | null>(null);
@@ -35,24 +39,63 @@ export default function WalletConnect() {
   };
 
   if (isConnected && address) {
+    const onExpectedNetwork = chainId === sepolia.id;
+
+    if (compact) {
+      return (
+        <button
+          onClick={handleDisconnect}
+          title={
+            onExpectedNetwork
+              ? `Connected: ${formatWalletAddress(address)}`
+              : `Wrong network: ${formatWalletAddress(address)}`
+          }
+          aria-label={`Disconnect wallet ${formatWalletAddress(address)}`}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-brand-border bg-gray-50 text-brand-dark transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/30"
+        >
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${
+              onExpectedNetwork ? "bg-brand-green" : "bg-amber-500"
+            }`}
+          />
+        </button>
+      );
+    }
+
     return (
-      <button
-        onClick={handleDisconnect}
-        aria-label={`Disconnect wallet ${address.slice(0, 6)}...${address.slice(-4)}`}
-        className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-brand-border rounded-lg hover:bg-gray-100 transition-all text-sm"
-      >
-        <span className="w-2 h-2 rounded-full bg-brand-green" />
-        <span className="font-mono text-xs text-brand-muted">
-          {address.slice(0, 6)}...{address.slice(-4)}
+      <div className="flex items-center gap-2">
+        <span
+          className={`hidden sm:inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+            onExpectedNetwork
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-amber-200 bg-amber-50 text-amber-700"
+          }`}
+        >
+          {onExpectedNetwork ? "Sepolia" : "Wrong Network"}
         </span>
-      </button>
+        <button
+          onClick={handleDisconnect}
+          aria-label={`Disconnect wallet ${formatWalletAddress(address)}`}
+          className="inline-flex items-center gap-2 rounded-lg border border-brand-border bg-gray-50 px-4 py-2 text-sm transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/30"
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${
+              onExpectedNetwork ? "bg-brand-green" : "bg-amber-500"
+            }`}
+          />
+          <span className="font-mono text-xs text-brand-muted">
+            {formatWalletAddress(address)}
+          </span>
+        </button>
+      </div>
     );
   }
 
   return (
     <div className="flex items-center gap-2">
-      {error && (
+      {!compact && error && (
         <span
+          aria-live="polite"
           className="text-xs text-red-500 max-w-[150px] truncate"
           title={error}
         >
@@ -61,11 +104,14 @@ export default function WalletConnect() {
       )}
       <button
         onClick={handleConnect}
-        aria-label="Connect wallet"
-        className="btn-primary px-5 py-2.5 text-sm flex items-center gap-2"
+        aria-label="Log in with wallet"
+        title={compact ? "Connect wallet" : undefined}
+        className={`btn-primary flex items-center gap-2 text-sm ${
+          compact ? "h-11 w-11 justify-center px-0 py-0" : "px-5 py-2.5"
+        }`}
       >
         <span className="material-icons text-sm">account_balance_wallet</span>
-        Connect
+        {!compact ? "Log In" : null}
       </button>
     </div>
   );

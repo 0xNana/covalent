@@ -57,14 +57,14 @@ export default function RevealButton({ fundId, onReveal }: RevealButtonProps) {
       </button>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+        <div aria-live="polite" className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
           <span className="material-icons text-red-500 text-sm">error</span>
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {success && (
-        <p className="text-xs text-brand-muted text-center">
+        <p aria-live="polite" className="text-xs text-brand-muted text-center">
           The total is now queued for public decryption. The contract owner must
           submit the verified proof to finalize the reveal.
         </p>

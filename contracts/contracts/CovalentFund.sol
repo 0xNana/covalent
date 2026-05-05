@@ -14,7 +14,6 @@ import "./interfaces/ICovalentFund.sol";
 /// @dev Donations arrive via `confidentialTransferAndCall` on an ERC-7984 token.
 ///      The contract implements IERC7984Receiver to accept these transfers.
 ///      Multi-token: each fund tracks per-token encrypted totals independently.
-///      Metadata (title, description) lives client-side keyed by fundId.
 contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ownable, ReentrancyGuard {
     // -------------------------------------------------------------------------
     // Custom errors
@@ -43,6 +42,15 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
     error InvalidFundId();
     error NoDirectETH();
     error NoFundsToReveal();
+    error EmptyTitle();
+    error TitleTooLong();
+    error DescriptionTooLong();
+    error CategoryTooLong();
+    error InvalidGoalAmount();
+
+    uint256 private constant MAX_TITLE_LENGTH = 96;
+    uint256 private constant MAX_DESCRIPTION_LENGTH = 600;
+    uint256 private constant MAX_CATEGORY_LENGTH = 40;
 
     // -------------------------------------------------------------------------
     // State
@@ -96,6 +104,11 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
         if (config.recipient == address(0)) revert InvalidRecipient();
         if (config.endTime <= config.startTime) revert InvalidTimeRange();
         if (config.startTime < block.timestamp) revert StartTimeInPast();
+        if (bytes(config.title).length == 0) revert EmptyTitle();
+        if (bytes(config.title).length > MAX_TITLE_LENGTH) revert TitleTooLong();
+        if (bytes(config.description).length > MAX_DESCRIPTION_LENGTH) revert DescriptionTooLong();
+        if (bytes(config.category).length > MAX_CATEGORY_LENGTH) revert CategoryTooLong();
+        if (config.goalAmount == 0) revert InvalidGoalAmount();
 
         fundId = ++_fundCounter;
 
@@ -106,7 +119,11 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
             startTime: config.startTime,
             endTime: config.endTime,
             active: true,
-            donationCount: 0
+            donationCount: 0,
+            goalAmount: config.goalAmount,
+            title: config.title,
+            description: config.description,
+            category: config.category
         });
 
         _admins[fundId][msg.sender] = true;
@@ -118,6 +135,11 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
     function getFund(uint256 fundId) external view override returns (Fund memory fund) {
         fund = _funds[fundId];
         if (fund.id == 0) revert FundDoesNotExist();
+    }
+
+    /// @inheritdoc ICovalentFund
+    function getFundCount() external view override returns (uint256 count) {
+        return _fundCounter;
     }
 
     // =========================================================================

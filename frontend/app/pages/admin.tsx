@@ -1,83 +1,129 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 
-const USDT_DECIMALS_DIVISOR = 1_000_000;
+import FundStats from "@/app/components/FundStats";
+import RevealButton from "@/app/components/RevealButton";
 import {
-  getFund,
-  getEncryptedTotal,
-  getRevealedTotal,
-  isTokenRevealed,
-  isRevealRequested,
   checkIsAdmin,
   getContractOwner,
+  getEncryptedTotal,
+  getFund,
+  getRevealedTotal,
+  isRevealRequested,
+  isTokenRevealed,
+  listViewerFunds,
   revealTotalWithProof,
-  withdrawFund,
   type FundData,
+  withdrawFund,
 } from "@/app/lib/contract";
 import { initFHEVM, publicDecryptFundHandle } from "@/app/lib/fheClient";
-import RevealButton from "@/app/components/RevealButton";
-import FundStats from "@/app/components/FundStats";
+import {
+  formatFundDate,
+  formatWalletAddress,
+  getFundPhase,
+} from "@/app/lib/fund-ui";
 
-interface TokenStats {
-  encryptedTotalHex: string;
-  revealedTotal: number;
+interface ManagedFund extends FundData {
+  revealedTotal: bigint;
   revealed: boolean;
   revealRequested: boolean;
 }
 
-type AdminFund = FundData & TokenStats;
-
 export default function AdminPage() {
   const { address, isConnected } = useAccount();
-  const [fundIdInput, setFundIdInput] = useState("");
-  const [fund, setFund] = useState<AdminFund | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const [fundIdInput, setFundIdInput] = useState(searchParams.get("fund") ?? "");
+  const [viewerFunds, setViewerFunds] = useState<FundData[]>([]);
+  const [fund, setFund] = useState<ManagedFund | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loadingFund, setLoadingFund] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [finalizeLoading, setFinalizeLoading] = useState(false);
 
+  const syncFundQuery = (value: string) => {
+    setFundIdInput(value);
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (value) {
+      nextParams.set("fund", value);
+    } else {
+      nextParams.delete("fund");
+    }
+    router.replace(`/admin${nextParams.toString() ? `?${nextParams.toString()}` : ""}`);
+  };
+
+  const loadViewerFunds = useCallback(async () => {
+    if (!address) return;
+    try {
+      setLoadingList(true);
+      const funds = await listViewerFunds(address);
+      setViewerFunds(funds);
+    } catch (listError: unknown) {
+      setError(
+        listError instanceof Error
+          ? listError.message
+          : "Failed to load your managed campaigns.",
+      );
+    } finally {
+      setLoadingList(false);
+    }
+  }, [address]);
+
   const loadFund = useCallback(async () => {
     if (!fundIdInput || !address) return;
 
-    setLoading(true);
-    setError(null);
-    setFund(null);
-
     try {
-      const fundId = parseInt(fundIdInput, 10);
-      const [
-        fundData,
-        encryptedTotalHex,
-        revealed,
-        revealedTotal,
-        revealRequested,
-        adminStatus,
-        contractOwner,
-      ] = await Promise.all([
-        getFund(fundId),
-        getEncryptedTotal(fundId).catch(() => "0x" + "0".repeat(64)),
-        isTokenRevealed(fundId).catch(() => false),
-        getRevealedTotal(fundId).catch(() => 0),
-        isRevealRequested(fundId).catch(() => false),
-        checkIsAdmin(fundId, address),
-        getContractOwner(),
-      ]);
+      setLoadingFund(true);
+      setError(null);
+      setFund(null);
 
-      setFund({ ...fundData, encryptedTotalHex, revealed, revealedTotal, revealRequested });
+      const fundId = Number.parseInt(fundIdInput, 10);
+      const [fundData, revealed, revealRequested, revealedTotal, adminStatus, ownerAddress] =
+        await Promise.all([
+          getFund(fundId),
+          isTokenRevealed(fundId).catch(() => false),
+          isRevealRequested(fundId).catch(() => false),
+          getRevealedTotal(fundId).catch(() => 0n),
+          checkIsAdmin(fundId, address),
+          getContractOwner(),
+        ]);
+
+      setFund({
+        ...fundData,
+        revealed,
+        revealRequested,
+        revealedTotal,
+      });
       setIsAdmin(adminStatus);
-      setIsOwner(contractOwner.toLowerCase() === address.toLowerCase());
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load fund";
-      setError(message);
+      setIsOwner(ownerAddress.toLowerCase() === address.toLowerCase());
+    } catch (loadError: unknown) {
+      setError(
+        loadError instanceof Error ? loadError.message : "Failed to load campaign.",
+      );
     } finally {
-      setLoading(false);
+      setLoadingFund(false);
     }
-  }, [fundIdInput, address]);
+  }, [address, fundIdInput]);
+
+  useEffect(() => {
+    if (isConnected && address) {
+      loadViewerFunds();
+    }
+  }, [address, isConnected, loadViewerFunds]);
+
+  useEffect(() => {
+    if (searchParams.get("fund")) {
+      setFundIdInput(searchParams.get("fund") ?? "");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (fundIdInput && address) {
@@ -87,16 +133,19 @@ export default function AdminPage() {
 
   const handleWithdraw = async () => {
     if (!fund) return;
-    setWithdrawLoading(true);
-    setError(null);
 
     try {
+      setWithdrawLoading(true);
+      setError(null);
       await withdrawFund(fund.id);
       await loadFund();
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to withdraw";
-      setError(message);
+      await loadViewerFunds();
+    } catch (withdrawError: unknown) {
+      setError(
+        withdrawError instanceof Error
+          ? withdrawError.message
+          : "Failed to withdraw funds.",
+      );
     } finally {
       setWithdrawLoading(false);
     }
@@ -104,44 +153,40 @@ export default function AdminPage() {
 
   const handleFinalizeReveal = async () => {
     if (!fund) return;
-    setFinalizeLoading(true);
-    setError(null);
 
     try {
+      setFinalizeLoading(true);
+      setError(null);
       await initFHEVM();
       const encryptedTotalHex = await getEncryptedTotal(fund.id);
-      const { decryptedValue, decryptionProof } = await publicDecryptFundHandle(encryptedTotalHex);
+      const { decryptedValue, decryptionProof } = await publicDecryptFundHandle(
+        encryptedTotalHex,
+      );
       await revealTotalWithProof(fund.id, decryptedValue, decryptionProof);
       await loadFund();
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to finalize reveal";
-      setError(message);
+      await loadViewerFunds();
+    } catch (finalizeError: unknown) {
+      setError(
+        finalizeError instanceof Error
+          ? finalizeError.message
+          : "Failed to finalize reveal.",
+      );
     } finally {
       setFinalizeLoading(false);
     }
   };
 
-  const formattedRevealedTotal = fund?.revealed
-    ? (fund.revealedTotal / USDT_DECIMALS_DIVISOR).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    : "0";
-  const nowSec = Math.floor(Date.now() / 1000);
-  const hasEnded = fund ? nowSec > fund.endTime : false;
-  const canSeeActions = isAdmin || isOwner;
-
   if (!isConnected) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <div className="card p-8 max-w-sm text-center">
-          <span className="material-icons text-brand-muted text-4xl mb-3">
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="card max-w-md p-8 text-center">
+          <span className="material-icons mb-3 text-4xl text-brand-muted">
             account_balance_wallet
           </span>
-          <p className="font-bold text-brand-dark mb-1">Connect Your Wallet</p>
-          <p className="text-sm text-brand-muted">
-            Connect your wallet to manage funds.
+          <h1 className="text-xl font-bold text-brand-dark">Connect Your Wallet</h1>
+          <p className="mt-2 text-sm leading-relaxed text-brand-muted">
+            Connect the campaign creator, assigned admin, or contract owner wallet to
+            manage reveals and withdrawals.
           </p>
         </div>
       </div>
@@ -149,204 +194,258 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-brand-dark">
-          Fund Admin
-        </h1>
-        <p className="text-brand-muted text-sm">
-          Manage your funds, reveal totals, and withdraw.
-        </p>
-      </div>
-
-      {/* Fund selector */}
-      <div className="card p-6">
-        <label className="text-sm font-semibold text-brand-dark block mb-2">
-          Fund ID
-        </label>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            min="1"
-            step="1"
-            value={fundIdInput}
-            onChange={(e) => setFundIdInput(e.target.value)}
-            className="input-field flex-1 font-mono"
-            placeholder="Enter fund ID"
-          />
-          <button
-            onClick={loadFund}
-            disabled={loading || !fundIdInput}
-            className="btn-primary px-6 py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Loading..." : "Load"}
-          </button>
-        </div>
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <span className="material-icons text-red-500 text-sm">error</span>
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      )}
-
-      {/* Fund loaded */}
-      {fund && (
-        <div className="space-y-6">
-          {/* Fund header */}
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="grid gap-8 lg:grid-cols-[22rem_minmax(0,1fr)]">
+        <aside className="space-y-5">
           <div className="card p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold text-brand-dark">
-                {fund.title ?? `Fund #${fund.id}`}
-              </h2>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  isAdmin
-                    ? "bg-brand-green-light text-brand-green"
-                    : "bg-red-50 text-red-500"
-                }`}
+            <h1 className="text-2xl font-extrabold text-brand-dark">Dashboard</h1>
+            <p className="mt-2 text-sm leading-relaxed text-brand-muted">
+              Manage campaigns you created or administer. The contract owner can
+              also finalize reveals from here.
+            </p>
+
+            <label
+              htmlFor="dashboard-fund-id"
+              className="mt-5 block text-sm font-semibold text-brand-dark"
+            >
+              Open by fund ID
+            </label>
+            <div className="mt-2 flex gap-2">
+              <input
+                id="dashboard-fund-id"
+                name="dashboard_fund_id"
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                autoComplete="off"
+                value={fundIdInput}
+                onChange={(event) => syncFundQuery(event.target.value)}
+                className="input-field flex-1 font-mono"
+                placeholder="Enter fund ID…"
+              />
+              <button
+                type="button"
+                onClick={loadFund}
+                disabled={loadingFund || !fundIdInput}
+                className="btn-primary px-5 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isAdmin ? "Admin" : "Not Admin"}
-              </span>
-            </div>
-            {fund.description && (
-              <p className="text-sm text-brand-muted">{fund.description}</p>
-            )}
-            <div className="flex gap-4 mt-4 text-sm">
-              <div>
-                <span className="text-brand-muted">Recipient: </span>
-                <span className="font-mono text-brand-body">
-                  {fund.recipient.slice(0, 6)}...{fund.recipient.slice(-4)}
-                </span>
-              </div>
-              <div>
-                <span className="text-brand-muted">Status: </span>
-                <span
-                  className={
-                    fund.active
-                      ? "text-brand-green font-bold"
-                      : "text-brand-muted"
-                  }
-                >
-                  {fund.active ? "Active" : "Closed"}
-                </span>
-              </div>
+                {loadingFund ? "Loading…" : "Open"}
+              </button>
             </div>
           </div>
 
-          {/* Stats */}
-          <FundStats
-            encryptedTotal={fund.encryptedTotalHex}
-            donationCount={fund.donationCount}
-            revealedTotal={fund.revealedTotal}
-            revealed={fund.revealed}
-          />
+          <div className="card p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-brand-dark">Your Campaigns</h2>
+              <button
+                type="button"
+                onClick={loadViewerFunds}
+                className="text-sm font-semibold text-brand-green hover:text-brand-green-hover"
+              >
+                Refresh
+              </button>
+            </div>
 
-          {/* Reveal Results */}
-          {fund.revealed && (
-            <div className="card p-6 text-center">
-              <p className="text-sm text-brand-muted mb-1">Total Raised</p>
-              <p className="text-4xl font-black text-brand-green mb-1">
-                ${formattedRevealedTotal}
-              </p>
-              <p className="text-xs text-brand-muted">
-                from {fund.donationCount} private donations
+            {loadingList && <p className="text-sm text-brand-muted">Loading campaigns…</p>}
+
+            {!loadingList && viewerFunds.length === 0 && (
+              <div className="space-y-3 text-sm text-brand-muted">
+                <p>No created or assigned campaigns found for this wallet yet.</p>
+                <Link href="/create" className="text-brand-green hover:text-brand-green-hover">
+                  Create your first campaign
+                </Link>
+              </div>
+            )}
+
+            {!loadingList && viewerFunds.length > 0 && (
+              <div className="space-y-3">
+                {viewerFunds.map((item) => {
+                  const phase = getFundPhase(item);
+                  const selected = fund?.id === item.id;
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => syncFundQuery(String(item.id))}
+                      className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${
+                        selected
+                          ? "border-brand-green bg-brand-green-light/40"
+                          : "border-brand-border bg-white hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-brand-dark">{item.title}</p>
+                          <p className="mt-1 text-xs text-brand-muted">
+                            Ends {formatFundDate(item.endTime)}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-brand-muted">
+                          {phase}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </aside>
+
+        <section className="space-y-6">
+          {error && (
+            <div
+              aria-live="polite"
+              className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+            >
+              {error}
+            </div>
+          )}
+
+          {!fund && !error && (
+            <div className="card p-10 text-center">
+              <span className="material-icons text-4xl text-brand-green">dashboard</span>
+              <h2 className="mt-3 text-xl font-bold text-brand-dark">
+                Select a campaign to manage
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-brand-muted">
+                Use the campaign list or enter a fund ID to load reveal and withdrawal controls.
               </p>
             </div>
           )}
 
-          {/* Admin actions */}
-          {canSeeActions && (
-            <div className="card p-6 space-y-4">
-              <h3 className="font-bold text-brand-dark">Actions</h3>
-
-              {/* Reveal */}
-              {!fund.revealed && hasEnded && !fund.revealRequested && isAdmin && (
-                <RevealButton fundId={fund.id} onReveal={() => loadFund()} />
-              )}
-
-              {!fund.revealed && !hasEnded && isAdmin && (
-                <div className="text-sm text-brand-muted bg-gray-50 rounded-lg p-4">
-                  Reveal requests open after the fund end time. Donations remain
-                  private and active until then.
-                </div>
-              )}
-
-              {!fund.revealed && hasEnded && !fund.revealRequested && isOwner && !isAdmin && (
-                <div className="text-sm text-brand-muted bg-gray-50 rounded-lg p-4">
-                  The contract owner can finalize reveals, but a fund admin must
-                  request the reveal first.
-                </div>
-              )}
-
-              {!fund.revealed && fund.revealRequested && isOwner && (
-                <button
-                  onClick={handleFinalizeReveal}
-                  disabled={finalizeLoading}
-                  className="w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {finalizeLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Finalizing...
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-icons">verified</span>
-                      Finalize Reveal
-                    </>
-                  )}
-                </button>
-              )}
-
-              {!fund.revealed && fund.revealRequested && !isOwner && (
-                <div className="text-sm text-brand-muted bg-gray-50 rounded-lg p-4">
-                  Reveal requested. Waiting for the contract owner wallet to
-                  submit the verified decryption proof.
-                </div>
-              )}
-
-              {/* Withdraw */}
-              {fund.revealed && fund.revealedTotal > 0 && fund.active && (
-                <button
-                  onClick={handleWithdraw}
-                  disabled={withdrawLoading}
-                  className="w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {withdrawLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-icons">
-                        account_balance
+          {fund && (
+            <>
+              <div className="card p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-brand-muted">
+                      Managing fund #{fund.id}
+                    </p>
+                    <h2 className="mt-1 text-2xl font-extrabold text-brand-dark">
+                      {fund.title}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-brand-muted">
+                      {fund.description || "No campaign description provided yet."}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-bold ${
+                        isAdmin
+                          ? "bg-brand-green-light text-brand-green"
+                          : "bg-gray-100 text-brand-muted"
+                      }`}
+                    >
+                      {isAdmin ? "Campaign Admin" : "Viewer"}
+                    </span>
+                    {isOwner && (
+                      <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                        Contract Owner
                       </span>
-                      Withdraw to Recipient
-                    </>
-                  )}
-                </button>
-              )}
-
-              {fund.revealed && !fund.active && (
-                <div className="text-center py-3 text-sm text-brand-muted bg-gray-50 rounded-lg">
-                  Fund has been withdrawn and closed.
+                    )}
+                  </div>
                 </div>
-              )}
 
-              {/* Info */}
-              <p className="text-xs text-brand-muted leading-relaxed">
-                Revealing shows only the combined total — individual amounts
-                stay private. Withdrawal sends funds to the recipient.
-              </p>
-            </div>
+                <div className="mt-5 flex flex-wrap gap-4 text-sm text-brand-muted">
+                  <span>Recipient {formatWalletAddress(fund.recipient)}</span>
+                  <span>Creator {formatWalletAddress(fund.creator)}</span>
+                  <span>Ends {formatFundDate(fund.endTime)}</span>
+                  <Link
+                    href={`/fund/${fund.id}`}
+                    className="font-semibold text-brand-green hover:text-brand-green-hover"
+                  >
+                    View public campaign page
+                  </Link>
+                </div>
+              </div>
+
+              <FundStats
+                donationCount={fund.donationCount}
+                goalAmount={fund.goalAmount}
+                revealedTotal={fund.revealedTotal}
+                revealed={fund.revealed}
+                revealRequested={fund.revealRequested}
+              />
+
+              <div className="card space-y-4 p-6">
+                <h3 className="text-lg font-bold text-brand-dark">Actions</h3>
+
+                {!fund.revealed &&
+                  getFundPhase(fund) === "active" &&
+                  isAdmin && (
+                    <div className="rounded-2xl border border-brand-border bg-gray-50 p-4 text-sm text-brand-muted">
+                      Reveal requests unlock after the campaign ends. Donations remain encrypted while the campaign is active.
+                    </div>
+                  )}
+
+                {!fund.revealed &&
+                  getFundPhase(fund) === "ended" &&
+                  !fund.revealRequested &&
+                  isAdmin && <RevealButton fundId={fund.id} onReveal={() => loadFund()} />}
+
+                {!fund.revealed &&
+                  fund.revealRequested &&
+                  !isOwner && (
+                    <div className="rounded-2xl border border-brand-border bg-gray-50 p-4 text-sm text-brand-muted">
+                      Reveal requested. Waiting for the contract owner wallet to submit the proof-verified total.
+                    </div>
+                  )}
+
+                {!fund.revealed && fund.revealRequested && isOwner && (
+                  <button
+                    type="button"
+                    onClick={handleFinalizeReveal}
+                    disabled={finalizeLoading}
+                    className="btn-primary flex w-full items-center justify-center gap-2 py-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {finalizeLoading ? (
+                      <>
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Finalizing Reveal…
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-icons">verified</span>
+                        Finalize Reveal
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {fund.revealed && fund.revealedTotal > 0n && fund.active && (
+                  <button
+                    type="button"
+                    onClick={handleWithdraw}
+                    disabled={withdrawLoading}
+                    className="btn-primary flex w-full items-center justify-center gap-2 py-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {withdrawLoading ? (
+                      <>
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Withdrawing…
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-icons">account_balance</span>
+                        Withdraw to Recipient
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {fund.revealed && !fund.active && (
+                  <div className="rounded-2xl border border-brand-border bg-gray-50 p-4 text-sm text-brand-muted">
+                    This campaign has already been withdrawn to the recipient wallet.
+                  </div>
+                )}
+              </div>
+            </>
           )}
-        </div>
-      )}
+        </section>
+      </div>
     </div>
   );
 }

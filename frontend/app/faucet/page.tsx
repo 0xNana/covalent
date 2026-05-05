@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount } from "wagmi";
 import {
@@ -232,7 +233,7 @@ export default function FaucetPage() {
               { href: "/donate", label: "Donate", desc: "Make a private donation to a fund" },
               { href: "/create", label: "Start a Fund", desc: "Create your own fundraiser" },
             ].map((item) => (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors group"
@@ -246,7 +247,7 @@ export default function FaucetPage() {
                 <span className="material-icons text-brand-muted text-lg group-hover:text-brand-green transition-colors">
                   arrow_forward
                 </span>
-              </a>
+              </Link>
             ))}
           </div>
         </div>

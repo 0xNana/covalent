@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { encryptAndDonate } from "@/app/lib/encryption";
 import { getCUsdtBalanceHandle } from "@/app/lib/contract";
+import { parseUsdtAmount } from "@/app/lib/fund-ui";
 
 interface DonateCardProps {
   fundId: string;
@@ -75,9 +77,16 @@ export default function DonateCard({
       return;
     }
 
-    const donationAmount = parseInt(amount, 10);
-    if (isNaN(donationAmount) || donationAmount <= 0) {
-      setError("Please enter a valid amount");
+    let donationAmount: bigint;
+    try {
+      donationAmount = parseUsdtAmount(amount);
+    } catch {
+      setError("Enter a valid USDT amount.");
+      return;
+    }
+
+    if (donationAmount <= 0n) {
+      setError("Enter a donation amount greater than zero.");
       return;
     }
 
@@ -118,10 +127,10 @@ export default function DonateCard({
   return (
     <div className="card p-6">
       <h2 className="text-lg font-bold text-brand-dark mb-1">
-        Make a Donation
+        Private Donation Flow
       </h2>
       <p className="text-xs text-brand-muted mb-5">
-        Your amount stays private — always.
+        The campaign stays public. Your amount stays private.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -132,9 +141,13 @@ export default function DonateCard({
           </label>
           <div className="relative">
             <input
+              id="donation-amount"
+              name="donation_amount"
               type="number"
-              min="1"
-              step="1"
+              min="0.01"
+              step="0.01"
+              inputMode="decimal"
+              autoComplete="off"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="input-field pl-4 pr-16 text-2xl font-bold h-14"
@@ -203,7 +216,7 @@ export default function DonateCard({
                 Amount will be private
               </p>
               <p className="text-xs text-green-600/80">
-                Nobody will see how much you donated
+                Nobody sees the amount unless a campaign aggregate reveal happens later
               </p>
             </div>
           </div>
@@ -211,7 +224,7 @@ export default function DonateCard({
 
         {/* Step Progress */}
         {loading && (
-          <div className="bg-gray-50 p-4 rounded-lg border border-brand-border">
+          <div aria-live="polite" className="bg-gray-50 p-4 rounded-lg border border-brand-border">
             <div className="flex items-center justify-between mb-3">
               {STEPS.map((step, i) => {
                 // Skip approve and shield steps if using existing cUSDT
@@ -263,7 +276,7 @@ export default function DonateCard({
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 py-3 px-4 bg-red-50 rounded-lg border border-red-200">
+          <div aria-live="polite" className="flex items-center gap-2 py-3 px-4 bg-red-50 rounded-lg border border-red-200">
             <span className="material-icons text-red-500 text-sm">error</span>
             <span className="text-sm text-red-600">{error}</span>
           </div>
@@ -271,7 +284,7 @@ export default function DonateCard({
 
         {/* Success */}
         {success && (
-          <div className="flex items-center justify-center gap-2 py-4 px-4 bg-brand-green-light rounded-lg border border-green-200">
+          <div aria-live="polite" className="flex items-center justify-center gap-2 py-4 px-4 bg-brand-green-light rounded-lg border border-green-200">
             <span className="material-icons text-brand-green">
               check_circle
             </span>
@@ -298,6 +311,19 @@ export default function DonateCard({
           <span className="material-icons text-xs">lock</span>
           Your donation amount is always private
         </p>
+
+        <div className="grid gap-2 rounded-xl border border-brand-border bg-gray-50 p-4 text-left text-xs text-brand-muted">
+          <p className="font-semibold text-brand-dark">Need test funds first?</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/faucet" className="text-brand-green hover:text-brand-green-hover">
+              Claim faucet USDT
+            </Link>
+            <span aria-hidden="true">•</span>
+            <Link href="/private" className="text-brand-green hover:text-brand-green-hover">
+              Shield to private balance
+            </Link>
+          </div>
+        </div>
       </form>
     </div>
   );

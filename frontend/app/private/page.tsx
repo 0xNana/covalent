@@ -1,67 +1,89 @@
 "use client";
 
+import Link from "next/link";
 import { useAccount } from "wagmi";
+
 import TokenManager from "@/app/components/TokenManager";
 
 export default function PrivatePage() {
   const { isConnected } = useAccount();
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-10 space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-extrabold text-brand-dark mb-1">
-          Make Private
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mb-8 max-w-3xl space-y-2">
+        <h1 className="heading-balance text-3xl font-extrabold text-brand-dark">
+          Private Balance Workspace
         </h1>
-        <p className="text-brand-muted text-sm">
-          Convert USDT to private tokens for anonymous donations, or withdraw
-          back to USDT anytime.
+        <p className="text-sm leading-relaxed text-brand-muted">
+          Shield public test USDT into confidential cUSDT, decrypt your own private
+          balance when needed, and unshield back to public tokens after the campaign flow.
         </p>
       </div>
 
-      {/* Connect wallet prompt */}
-      {!isConnected && (
-        <div className="card border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700 flex items-center gap-3">
-          <span className="material-icons text-lg">account_balance_wallet</span>
-          Please connect your wallet to manage tokens.
-        </div>
-      )}
-
-      {/* Token Manager */}
-      <TokenManager />
-
-      {/* How it works */}
-      <div className="card p-6">
-        <h3 className="font-bold text-brand-dark text-sm mb-4">How It Works</h3>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            {
-              icon: "arrow_forward",
-              title: "Make Private",
-              desc: "Convert USDT to private tokens",
-            },
-            {
-              icon: "favorite",
-              title: "Donate",
-              desc: "Give anonymously to any fund",
-            },
-            {
-              icon: "arrow_back",
-              title: "Withdraw",
-              desc: "Convert back to USDT anytime",
-            },
-          ].map((step, i) => (
-            <div key={i} className="text-center">
-              <div className="w-10 h-10 rounded-full bg-brand-green-light flex items-center justify-center text-brand-green mx-auto mb-2">
-                <span className="material-icons text-lg">{step.icon}</span>
-              </div>
-              <h4 className="font-bold text-brand-dark text-xs mb-0.5">
-                {step.title}
-              </h4>
-              <p className="text-[11px] text-brand-muted">{step.desc}</p>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="space-y-6">
+          {!isConnected && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+              Connect a wallet on Sepolia to manage your private balance. You can claim
+              faucet USDT first if you need test funds.
             </div>
-          ))}
+          )}
+
+          <TokenManager />
+
+          <div className="card p-6">
+            <h2 className="text-lg font-bold text-brand-dark">How shielding works</h2>
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              {[
+                {
+                  icon: "water_drop",
+                  title: "1. Public USDT",
+                  desc: "Claim or fund your wallet with test USDT on Sepolia.",
+                },
+                {
+                  icon: "encrypted",
+                  title: "2. Private cUSDT",
+                  desc: "Wrap into confidential balance so the amount becomes hidden onchain.",
+                },
+                {
+                  icon: "favorite",
+                  title: "3. Donate privately",
+                  desc: "Use the encrypted balance directly in a confidential campaign donation.",
+                },
+              ].map((step) => (
+                <div key={step.title} className="rounded-2xl border border-brand-border bg-gray-50 p-5 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-green-light text-brand-green">
+                    <span className="material-icons text-2xl">{step.icon}</span>
+                  </div>
+                  <h3 className="mt-3 text-sm font-bold text-brand-dark">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-brand-muted">{step.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <div className="card p-6">
+            <h2 className="text-lg font-bold text-brand-dark">Suggested Flow</h2>
+            <div className="mt-4 space-y-3 text-sm">
+              {[
+                { href: "/faucet", label: "Claim test USDT", desc: "Top up your wallet with faucet tokens." },
+                { href: "/donate", label: "Browse campaigns", desc: "Pick a campaign before you shield and donate." },
+                { href: "/admin", label: "Open dashboard", desc: "Reveal and withdraw after campaigns close." },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="block rounded-2xl border border-brand-border px-4 py-3 transition-colors hover:bg-gray-50"
+                >
+                  <p className="font-semibold text-brand-dark">{item.label}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-brand-muted">{item.desc}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );

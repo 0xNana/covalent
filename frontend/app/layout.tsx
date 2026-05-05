@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./styles/globals.css";
 import ClientShell from "./ClientShell";
 
@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   title: "Covalent | Give Privately, Make a Difference",
   description:
     "The fundraising platform where your donations are completely private. Support causes you believe in — nobody sees how much you gave.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b7a45",
 };
 
 export default function RootLayout({
@@ -16,6 +20,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link
+          rel="preconnect"
+          href="https://fonts.googleapis.com"
+        />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
         <link
           href="https://fonts.googleapis.com/icon?family=Material+Icons"
           rel="stylesheet"
@@ -30,7 +47,7 @@ export default function RootLayout({
           type="text/javascript"
         />
       </head>
-      <body className="font-display bg-brand-bg-warm text-brand-body min-h-screen">
+      <body className="font-display bg-brand-bg-warm text-brand-body min-h-screen overflow-x-hidden">
         <ClientShell>{children}</ClientShell>
       </body>
     </html>

@@ -14,6 +14,7 @@ import {
   getCUsdtBalanceHandle,
 } from "@/app/lib/contract";
 import { encryptDonationAmount, initFHEVM, decryptUserBalance, publicDecryptUnshieldHandle } from "@/app/lib/fheClient";
+import { formatUsdtAmount, parseUsdtAmount } from "@/app/lib/fund-ui";
 import { ethers } from "ethers";
 
 const USDT_DECIMALS = 6;
@@ -110,18 +111,12 @@ export default function TokenManager() {
     if (isConnected) fetchBalances();
   }, [isConnected, fetchBalances]);
 
-  const formatUsdt = (raw: bigint): string => {
-    const num = Number(raw) / 10 ** USDT_DECIMALS;
-    return num.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
   const parsedAmount = (): bigint => {
-    const num = parseFloat(amount);
-    if (isNaN(num) || num <= 0) return BigInt(0);
-    return BigInt(Math.round(num * 10 ** USDT_DECIMALS));
+    try {
+      return parseUsdtAmount(amount);
+    } catch {
+      return 0n;
+    }
   };
 
   const handleShield = async () => {
@@ -226,7 +221,7 @@ export default function TokenManager() {
             USDT Balance
           </p>
           <p className="text-xl font-bold text-brand-dark font-mono">
-            ${formatUsdt(balances.usdt)}
+            {formatUsdtAmount(balances.usdt)}
           </p>
         </div>
         <div className="bg-brand-green-light rounded-lg p-4 border border-green-200">
@@ -235,7 +230,7 @@ export default function TokenManager() {
           </p>
           {balances.cUsdtDecrypted !== null ? (
             <p className="text-xl font-bold text-brand-green font-mono">
-              ${formatUsdt(balances.cUsdtDecrypted)}
+              {formatUsdtAmount(balances.cUsdtDecrypted)}
             </p>
           ) : balances.cUsdtHandle ? (
             <div className="flex items-center gap-2">
@@ -293,9 +288,13 @@ export default function TokenManager() {
         </label>
         <div className="relative">
           <input
+            id="token-manager-amount"
+            name="token_manager_amount"
             type="number"
             min="0"
             step="0.01"
+            inputMode="decimal"
+            autoComplete="off"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="Enter amount"
@@ -319,7 +318,7 @@ export default function TokenManager() {
 
       {/* Step indicator */}
       {step && (
-        <div className="flex items-center gap-2 mb-4 p-3 bg-brand-green-light border border-green-200 rounded-lg">
+        <div aria-live="polite" className="flex items-center gap-2 mb-4 p-3 bg-brand-green-light border border-green-200 rounded-lg">
           <div className="w-4 h-4 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-brand-green font-medium">{step}</p>
         </div>
@@ -327,7 +326,7 @@ export default function TokenManager() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 border border-red-200 rounded-lg">
+        <div aria-live="polite" className="flex items-center gap-2 p-3 mb-4 bg-red-50 border border-red-200 rounded-lg">
           <span className="material-icons text-red-500 text-sm">error</span>
           <p className="text-sm text-red-600">{error}</p>
         </div>
@@ -335,7 +334,7 @@ export default function TokenManager() {
 
       {/* Success */}
       {success && (
-        <div className="flex items-center gap-2 p-3 mb-4 bg-brand-green-light border border-green-200 rounded-lg">
+        <div aria-live="polite" className="flex items-center gap-2 p-3 mb-4 bg-brand-green-light border border-green-200 rounded-lg">
           <span className="material-icons text-brand-green text-sm">
             check_circle
           </span>
