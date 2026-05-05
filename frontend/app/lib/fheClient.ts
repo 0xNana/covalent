@@ -19,7 +19,7 @@ async function getSDK() {
 /**
  * Initialize the FHEVM client instance.
  *
- * 1. Calls `initSDK()` to load the TFHE WASM (served from the Zama CDN,
+ * 1. Calls `initSDK()` to load the TFHE WASM (served from the SDK CDN,
  *    loaded via the <script> tag in layout.tsx).
  * 2. Creates an FhevmInstance using SepoliaConfig + the user's wallet provider.
  *

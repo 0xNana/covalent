@@ -158,7 +158,7 @@ export default function Navbar({
                   Covalent
                 </p>
                 <p className="truncate text-xs text-brand-muted">
-                  Confidential fundraising on Zama
+                  Private fundraising on Ethereum
                 </p>
               </div>
             ) : null}

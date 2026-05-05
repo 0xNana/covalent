@@ -12,7 +12,7 @@ export default function LandingPage() {
               <span className="material-icons text-sm" aria-hidden="true">
                 verified_user
               </span>
-              Confidential fundraising on Zama
+              Private fundraising on Ethereum
             </div>
             <h1 className="heading-balance max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-brand-dark md:text-6xl">
               Private donations.

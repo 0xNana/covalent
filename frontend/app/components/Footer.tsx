@@ -12,7 +12,7 @@ export default function Footer() {
               </div>
               <div>
                 <p className="text-lg font-extrabold text-brand-dark">Covalent</p>
-                <p className="text-xs text-brand-muted">Confidential fundraising on Zama</p>
+                <p className="text-xs text-brand-muted">Private fundraising on Ethereum</p>
               </div>
             </div>
             <p className="text-sm leading-relaxed text-brand-muted">
