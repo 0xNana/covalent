@@ -53,14 +53,13 @@ out/
 
 # Production
 *.mp4
-!video/builder-track-demo.mp4
 
 # Temporary files
 tmp/
 temp/
 
 # Project-specific
-video/
+/video/
 fe-design/
 scripts/
 internal-docs/
