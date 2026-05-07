@@ -1,6 +1,5 @@
 import { ethers } from "ethers";
 // Types — inferred from the SDK; no top-level import needed.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type FhevmInstance = any;
 
 let instance: FhevmInstance | null = null;

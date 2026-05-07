@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./styles/globals.css";
 import ClientShell from "./ClientShell";
 
@@ -42,9 +43,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
         {/* FHE SDK — loaded via CDN to avoid bundling 1.28 MB + WASM */}
-        <script
+        <Script
           src="https://cdn.zama.org/relayer-sdk-js/0.4.0/relayer-sdk-js.umd.cjs"
-          type="text/javascript"
+          strategy="beforeInteractive"
         />
       </head>
       <body className="font-display bg-brand-bg-warm text-brand-body min-h-screen overflow-x-hidden">
