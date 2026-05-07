@@ -15,13 +15,13 @@ export default function LandingPage() {
               Private fundraising on Ethereum
             </div>
             <h1 className="heading-balance max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-brand-dark md:text-6xl">
-              Private donations.
+              Public campaigns.
               <br />
-              <span className="text-brand-green">Public campaign clarity.</span>
+              <span className="text-brand-green">Private gifts.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-brand-muted">
-              Covalent gives campaigns a clean public landing page while keeping
-              contribution amounts encrypted until a reveal is explicitly requested.
+              Share and browse fundraiser pages openly while every donation amount
+              stays encrypted until the organizer chooses to reveal the final total.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -43,8 +43,8 @@ export default function LandingPage() {
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               {[
-                "Campaigns stay shareable and readable before wallet connection.",
-                "Only aggregate totals are revealed after campaign close.",
+                "Browse and share campaigns before anyone connects a wallet.",
+                "Reveal the campaign total later without exposing individual gifts.",
               ].map((text) => (
                 <div
                   key={text}
@@ -68,18 +68,18 @@ export default function LandingPage() {
           {[
             {
               icon: "visibility_off",
-              title: "Confidential by default",
-              desc: "Amounts stay hidden while campaigns remain browsable and understandable.",
+              title: "Private contribution amounts",
+              desc: "Support a campaign without publishing how much you gave.",
             },
             {
               icon: "verified_user",
-              title: "Proof-verified reveals",
-              desc: "Only combined totals become public, and only after an explicit reveal request.",
+              title: "Totals revealed on demand",
+              desc: "Organizers can reveal the final total after close without exposing individual gifts.",
             },
             {
               icon: "dashboard_customize",
-              title: "Operator-ready workflow",
-              desc: "Creators get dashboards, share flows, reveal states, and withdrawal actions.",
+              title: "Built for organizers",
+              desc: "Launch campaigns, manage reveals, and withdraw funds from one dashboard.",
             },
           ].map((item) => (
             <div key={item.title} className="card flex items-start gap-4 px-6 py-5">
