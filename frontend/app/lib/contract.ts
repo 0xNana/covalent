@@ -97,6 +97,19 @@ function getWriteProvider(): ethers.BrowserProvider {
   return new ethers.BrowserProvider(window.ethereum);
 }
 
+async function assertContractExists(
+  provider: ReadProvider,
+  address: string,
+  label: string,
+): Promise<void> {
+  const code = await provider.getCode(address);
+  if (!code || code === "0x") {
+    throw new Error(
+      `No contract found at ${label} address ${address}. Check the configured address and active network.`,
+    );
+  }
+}
+
 function getReadProvider(): ReadProvider {
   if (cachedReadProvider) {
     return cachedReadProvider;
@@ -124,17 +137,38 @@ async function getSignedContract(): Promise<ethers.Contract> {
     );
   }
   const provider = getWriteProvider();
+  await assertContractExists(provider, CONTRACT_ADDRESS, "CovalentFund");
   const signer = await provider.getSigner();
   return new ethers.Contract(CONTRACT_ADDRESS, COVALENT_FUND_ABI, signer);
 }
 
-function getReadContract(): ethers.Contract {
+async function getReadContract(): Promise<ethers.Contract> {
   if (!CONTRACT_ADDRESS) {
     throw new Error(
       "Contract address not configured. Set NEXT_PUBLIC_CONTRACT_ADDRESS.",
     );
   }
-  return new ethers.Contract(CONTRACT_ADDRESS, COVALENT_FUND_ABI, getReadProvider());
+  const provider = getReadProvider();
+  await assertContractExists(provider, CONTRACT_ADDRESS, "CovalentFund");
+  return new ethers.Contract(CONTRACT_ADDRESS, COVALENT_FUND_ABI, provider);
+}
+
+function wrapFundContractError(action: string, error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (
+    message.includes("CALL_EXCEPTION") ||
+    message.includes("missing revert data") ||
+    message.includes("BAD_DATA") ||
+    message.includes("could not decode") ||
+    message.includes("value=\"0x\"")
+  ) {
+    return new Error(
+      `Failed to ${action} on CovalentFund at ${CONTRACT_ADDRESS}. This address may not be a CovalentFund deployment on the current network. Check NEXT_PUBLIC_CONTRACT_ADDRESS and NEXT_PUBLIC_RPC_URL.`,
+    );
+  }
+
+  return error instanceof Error ? error : new Error(message);
 }
 
 function normalizeFund(raw: {
@@ -472,30 +506,31 @@ export async function getFund(fundId: number): Promise<FundData> {
     throw new Error("Invalid fund ID. Please enter a valid fund number.");
   }
 
-  const contract = getReadContract();
   try {
+    const contract = await getReadContract();
     const fund = await contract.getFund(fundId);
     return normalizeFund(fund);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (
-      message.includes("BAD_DATA") ||
-      message.includes("could not decode") ||
-      message.includes("value=\"0x\"") ||
       message.includes("FundDoesNotExist") ||
-      message.includes("execution reverted")
+      message.includes("InvalidFundId")
     ) {
       throw new Error(
         "Fund not found. Check the fund ID and the currently selected network.",
       );
     }
-    throw error;
+    throw wrapFundContractError("read fund data", error);
   }
 }
 
 export async function getFundCount(): Promise<number> {
-  const contract = getReadContract();
-  return Number(await contract.getFundCount());
+  try {
+    const contract = await getReadContract();
+    return Number(await contract.getFundCount());
+  } catch (error: unknown) {
+    throw wrapFundContractError("load funds", error);
+  }
 }
 
 export async function listFunds(): Promise<FundData[]> {
@@ -523,54 +558,82 @@ export async function getEncryptedTotal(
   fundId: number,
   token?: string,
 ): Promise<string> {
-  const contract = getReadContract();
-  const tokenAddr = token || getCUsdtAddress();
-  return contract.getEncryptedTotal(fundId, tokenAddr);
+  try {
+    const contract = await getReadContract();
+    const tokenAddr = token || getCUsdtAddress();
+    return contract.getEncryptedTotal(fundId, tokenAddr);
+  } catch (error: unknown) {
+    throw wrapFundContractError("read encrypted totals", error);
+  }
 }
 
 export async function getRevealedTotal(
   fundId: number,
   token?: string,
 ): Promise<bigint> {
-  const contract = getReadContract();
-  const tokenAddr = token || getCUsdtAddress();
-  return contract.getRevealedTotal(fundId, tokenAddr);
+  try {
+    const contract = await getReadContract();
+    const tokenAddr = token || getCUsdtAddress();
+    return contract.getRevealedTotal(fundId, tokenAddr);
+  } catch (error: unknown) {
+    throw wrapFundContractError("read revealed totals", error);
+  }
 }
 
 export async function isTokenRevealed(
   fundId: number,
   token?: string,
 ): Promise<boolean> {
-  const contract = getReadContract();
-  const tokenAddr = token || getCUsdtAddress();
-  return contract.isTokenRevealed(fundId, tokenAddr);
+  try {
+    const contract = await getReadContract();
+    const tokenAddr = token || getCUsdtAddress();
+    return contract.isTokenRevealed(fundId, tokenAddr);
+  } catch (error: unknown) {
+    throw wrapFundContractError("read reveal status", error);
+  }
 }
 
 export async function isRevealRequested(
   fundId: number,
   token?: string,
 ): Promise<boolean> {
-  const contract = getReadContract();
-  const tokenAddr = token || getCUsdtAddress();
-  return contract.isRevealRequested(fundId, tokenAddr);
+  try {
+    const contract = await getReadContract();
+    const tokenAddr = token || getCUsdtAddress();
+    return contract.isRevealRequested(fundId, tokenAddr);
+  } catch (error: unknown) {
+    throw wrapFundContractError("read reveal requests", error);
+  }
 }
 
 export async function getFundTokens(fundId: number): Promise<string[]> {
-  const contract = getReadContract();
-  return contract.getFundTokens(fundId);
+  try {
+    const contract = await getReadContract();
+    return contract.getFundTokens(fundId);
+  } catch (error: unknown) {
+    throw wrapFundContractError("read fund tokens", error);
+  }
 }
 
 export async function checkIsAdmin(
   fundId: number,
   address: string,
 ): Promise<boolean> {
-  const contract = getReadContract();
-  return contract.isAdmin(fundId, address);
+  try {
+    const contract = await getReadContract();
+    return contract.isAdmin(fundId, address);
+  } catch (error: unknown) {
+    throw wrapFundContractError("check admin permissions", error);
+  }
 }
 
 export async function getContractOwner(): Promise<string> {
-  const contract = getReadContract();
-  return contract.owner();
+  try {
+    const contract = await getReadContract();
+    return contract.owner();
+  } catch (error: unknown) {
+    throw wrapFundContractError("read contract owner", error);
+  }
 }
 
 export function getFaucetAddress(): string {

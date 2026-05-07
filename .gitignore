@@ -59,6 +59,7 @@ tmp/
 temp/
 
 # Project-specific
+/.codex
 /video/
 fe-design/
 scripts/
