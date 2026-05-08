@@ -57,8 +57,9 @@ const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ?? "";
 const CUSDT_ADDRESS = process.env.NEXT_PUBLIC_CUSDT_ADDRESS ?? "";
 const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_ADDRESS ?? "";
 const FAUCET_ADDRESS = process.env.NEXT_PUBLIC_FAUCET_ADDRESS ?? "";
+const DEFAULT_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
 const RPC_URL =
-  process.env.NEXT_PUBLIC_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com";
+  process.env.NEXT_PUBLIC_RPC_URL?.trim() || DEFAULT_RPC_URL;
 
 type ReadProvider = ethers.BrowserProvider | ethers.JsonRpcProvider;
 
@@ -115,19 +116,8 @@ function getReadProvider(): ReadProvider {
     return cachedReadProvider;
   }
 
-  if (RPC_URL) {
-    cachedReadProvider = new ethers.JsonRpcProvider(RPC_URL);
-    return cachedReadProvider;
-  }
-
-  if (typeof window !== "undefined" && window.ethereum) {
-    cachedReadProvider = new ethers.BrowserProvider(window.ethereum);
-    return cachedReadProvider;
-  }
-
-  throw new Error(
-    "Read provider not configured. Set NEXT_PUBLIC_RPC_URL or connect a wallet.",
-  );
+  cachedReadProvider = new ethers.JsonRpcProvider(RPC_URL);
+  return cachedReadProvider;
 }
 
 async function getSignedContract(): Promise<ethers.Contract> {
@@ -151,6 +141,43 @@ async function getReadContract(): Promise<ethers.Contract> {
   const provider = getReadProvider();
   await assertContractExists(provider, CONTRACT_ADDRESS, "CovalentFund");
   return new ethers.Contract(CONTRACT_ADDRESS, COVALENT_FUND_ABI, provider);
+}
+
+async function assertDonationTokenWhitelisted(
+  provider: ReadProvider,
+  fundAddress: string,
+  tokenAddress: string,
+): Promise<void> {
+  const normalizedFundAddress = ethers.getAddress(fundAddress);
+  const normalizedTokenAddress = ethers.getAddress(tokenAddress);
+
+  if (normalizedFundAddress === normalizedTokenAddress) {
+    throw new Error(
+      "CovalentFund and cUSDT are configured to the same address. Check NEXT_PUBLIC_CONTRACT_ADDRESS and NEXT_PUBLIC_CUSDT_ADDRESS.",
+    );
+  }
+
+  await assertContractExists(provider, normalizedFundAddress, "CovalentFund");
+  await assertContractExists(provider, normalizedTokenAddress, "cUSDT");
+
+  const fund = new ethers.Contract(
+    normalizedFundAddress,
+    COVALENT_FUND_ABI,
+    provider,
+  );
+
+  let whitelisted: boolean;
+  try {
+    whitelisted = await fund.isWhitelisted(normalizedTokenAddress);
+  } catch (error: unknown) {
+    throw wrapFundContractError("check token whitelist", error);
+  }
+
+  if (!whitelisted) {
+    throw new Error(
+      `The configured cUSDT token ${normalizedTokenAddress} is not whitelisted on CovalentFund ${normalizedFundAddress}. Update NEXT_PUBLIC_CUSDT_ADDRESS to the whitelisted cUSDT deployment, or whitelist this token on the fund contract before donating from a private balance.`,
+    );
+  }
 }
 
 function wrapFundContractError(action: string, error: unknown): Error {
@@ -410,11 +437,18 @@ export async function donateConfidential(
   inputProof: Uint8Array,
 ): Promise<void> {
   const provider = getWriteProvider();
+  await assertDonationTokenWhitelisted(
+    provider,
+    getContractAddress(),
+    getCUsdtAddress(),
+  );
   const signer = await provider.getSigner();
   const cUsdt = new ethers.Contract(getCUsdtAddress(), CUSDT_ABI, signer);
   const encodedFundId = ethers.AbiCoder.defaultAbiCoder().encode(["uint256"], [fundId]);
 
-  const tx = await cUsdt.confidentialTransferAndCall(
+  const tx = await cUsdt[
+    "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
+  ](
     getContractAddress(),
     handle,
     inputProof,
