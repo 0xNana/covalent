@@ -30,7 +30,7 @@ export default function HowItWorksPage() {
           },
           {
             title: "4. Reveal only the aggregate",
-            body: "After the campaign ends, an admin can request a reveal. The contract owner finalizes a proof-verified decryption so only the combined total becomes public.",
+            body: "After the campaign ends, the campaign creator or an assigned admin can request and finalize a proof-verified reveal so only the combined total becomes public.",
           },
         ].map((item) => (
           <article key={item.title} className="card p-6">

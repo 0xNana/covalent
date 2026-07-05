@@ -13,7 +13,7 @@ Covalent enables verifiable fundraising without revealing donor identities or do
 - **ERC-7984 Confidential Tokens** — Donors Shield USDT into cUSDT (encrypted ERC-7984) and donate via `confidentialTransferAndCall`
 - **FHE On-Chain Arithmetic** — Encrypted donations are summed using `FHE.add()` on `euint64` ciphertexts — no decryption, no plaintext
 - **Multi-Token Support** — Per-fund, per-token encrypted totals with owner-managed token whitelist
-- **Aggregated Reveals Only** — Authorized admins can request a public reveal, and the owner finalizes it with a verified decryption proof; individual amounts remain encrypted permanently
+- **Aggregated Reveals Only** — Authorized campaign creators or admins can request and finalize a public reveal with a verified decryption proof; individual amounts remain encrypted permanently
 - **Shield & Unshield** — Admin panel includes a Token Manager for shielding USDT → cUSDT and unshielding cUSDT → USDT
 - **Role-Based Access** — Creator and admin roles control reveal requests and fund management
 - **Full Test Suite** — 49 passing tests (46 CovalentFund + 3 FHECounter + 1 pending Sepolia-only)
@@ -199,9 +199,9 @@ npm run dev
 | `getRevealedTotal(fundId, token)` | Get per-token revealed total |
 | `isTokenRevealed(fundId, token)` | Check if a token's total has been revealed |
 | `getFundTokens(fundId)` | List all tokens donated to a fund |
-| `requestReveal(fundId, token)` | Admin requests a public decryption for a per-token aggregate after the fund closes |
-| `revealTotal(fundId, token, total, decryptionProof)` | Owner/MCP submits a proof-verified decrypted per-token aggregate |
-| `withdraw(fundId, token)` | Transfer cUSDT to recipient after reveal (admin only) |
+| `requestReveal(fundId, token)` | Campaign creator or admin requests a public decryption for a per-token aggregate after the fund closes |
+| `revealTotal(fundId, token, total, decryptionProof)` | Campaign creator or admin submits a proof-verified decrypted per-token aggregate |
+| `withdraw(fundId, token)` | Transfer cUSDT to recipient after reveal (creator or admin only) |
 | `whitelistToken(token)` | Owner adds an ERC-7984 token to the whitelist |
 | `addAdmin(fundId, admin)` | Add admin to a fund |
 | `removeAdmin(fundId, admin)` | Remove admin (creator only) |

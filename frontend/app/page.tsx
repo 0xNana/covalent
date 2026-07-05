@@ -141,7 +141,7 @@ export default function LandingPage() {
                 step: "4",
                 icon: "verified",
                 title: "Reveal Total",
-                desc: "Admins request a post-campaign reveal so only the aggregate becomes public.",
+                desc: "Campaign creators or admins request and finalize a post-campaign reveal so only the aggregate becomes public.",
               },
             ].map((item) => (
               <div key={item.step} className="text-center">

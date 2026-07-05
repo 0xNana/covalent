@@ -65,7 +65,7 @@ export default function RevealButton({ fundId, onReveal }: RevealButtonProps) {
 
       {success && (
         <p aria-live="polite" className="text-xs text-brand-muted text-center">
-          The total is now queued for public decryption. The contract owner must
+          The total is now queued for public decryption. Campaign admins can
           submit the verified proof to finalize the reveal.
         </p>
       )}

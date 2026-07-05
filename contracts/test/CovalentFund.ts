@@ -521,7 +521,7 @@ describe("CovalentFund (ERC-7984)", function () {
       await expect(fund.requestReveal(2, cUsdtAddress)).to.be.revertedWithCustomError(fund, "NoFundsToReveal");
     });
 
-    it("should allow owner to reveal total after request with a valid proof", async function () {
+    it("should allow campaign creator to reveal total after request with a valid proof", async function () {
       await increaseTime(3600);
       await fund.requestReveal(FUND_ID, cUsdtAddress);
       expect(await fund.isRevealRequested(FUND_ID, cUsdtAddress)).to.equal(true);
@@ -536,6 +536,20 @@ describe("CovalentFund (ERC-7984)", function () {
       expect(await fund.getRevealedTotal(FUND_ID, cUsdtAddress)).to.equal(cleartext);
     });
 
+    it("should allow campaign admin to reveal total after request with a valid proof", async function () {
+      await fund.addAdmin(FUND_ID, signers.bob.address);
+      await increaseTime(3600);
+      await fund.connect(signers.bob).requestReveal(FUND_ID, cUsdtAddress);
+      const { cleartext, decryptionProof } = await publicDecryptFundTotal(fund, FUND_ID, cUsdtAddress);
+
+      await expect(fund.connect(signers.bob).revealTotal(FUND_ID, cUsdtAddress, cleartext, decryptionProof))
+        .to.emit(fund, "TotalRevealed")
+        .withArgs(FUND_ID, cUsdtAddress, cleartext, signers.bob.address, (value: bigint) => value > 0n);
+
+      expect(await fund.isTokenRevealed(FUND_ID, cUsdtAddress)).to.be.true;
+      expect(await fund.getRevealedTotal(FUND_ID, cUsdtAddress)).to.equal(cleartext);
+    });
+
     it("should revert reveal without prior request", async function () {
       await increaseTime(3600);
 
@@ -544,14 +558,14 @@ describe("CovalentFund (ERC-7984)", function () {
       ).to.be.revertedWithCustomError(fund, "RevealNotRequested");
     });
 
-    it("should revert reveal from non-owner", async function () {
+    it("should revert reveal from unauthorized user", async function () {
       await increaseTime(3600);
       await fund.requestReveal(FUND_ID, cUsdtAddress);
       const { cleartext, decryptionProof } = await publicDecryptFundTotal(fund, FUND_ID, cUsdtAddress);
 
       await expect(
         fund.connect(signers.alice).revealTotal(FUND_ID, cUsdtAddress, cleartext, decryptionProof),
-      ).to.be.revertedWithCustomError(fund, "OnlyOwnerCanReveal");
+      ).to.be.revertedWithCustomError(fund, "NotAuthorized");
     });
 
     it("should revert double reveal", async function () {
@@ -801,7 +815,7 @@ describe("CovalentFund (ERC-7984)", function () {
       await increaseTime(7200);
       await fund.requestReveal(1, cUsdtAddress);
 
-      // 7. Owner reveals the total with a verified decryption proof
+      // 7. Campaign creator reveals the total with a verified decryption proof
       const { cleartext, decryptionProof } = await publicDecryptFundTotal(fund, 1, cUsdtAddress);
       await fund.revealTotal(1, cUsdtAddress, cleartext, decryptionProof);
       expect(await fund.isTokenRevealed(1, cUsdtAddress)).to.be.true;

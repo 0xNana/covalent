@@ -44,4 +44,4 @@ npm run dev
 ```
 
 Open the local app in your browser and connect a wallet to test the demo flow.
-Use an admin wallet to request a reveal after fund close, then use the contract owner wallet to finalize the proof-backed reveal.
+Use the campaign creator or an assigned admin wallet to request and finalize a proof-backed reveal after fund close.

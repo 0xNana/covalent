@@ -224,7 +224,7 @@ export default function FundPage() {
                     active: phase === "ended",
                   },
                   {
-                    label: "Admin requests aggregate reveal",
+                    label: "Creator or admin reveals aggregate",
                     active: fund.tokenStats.revealRequested || fund.tokenStats.revealed,
                   },
                   {

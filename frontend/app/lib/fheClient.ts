@@ -109,8 +109,12 @@ export async function decryptUserBalance(
   const keyPair = (fhevmInstance as any).generateKeypair();
   
   // Create EIP-712 signature for user decryption
-  const startTimestamp = Math.floor(Date.now() / 1000);
-  const durationDays = 365; // Signature valid for 1 year
+  const latestBlock = await signer.provider?.getBlock("latest");
+  const startTimestamp =
+    typeof latestBlock?.timestamp === "number"
+      ? latestBlock.timestamp
+      : Math.floor(Date.now() / 1000);
+  const durationDays = 1;
   
   const eip712 = (fhevmInstance as any).createEIP712(
     keyPair.publicKey,
@@ -136,7 +140,7 @@ export async function decryptUserBalance(
     [{ handle: handleHex, contractAddress: cUsdtAddress }],
     keyPair.privateKey,
     keyPair.publicKey,
-    signature,
+    signature.replace(/^0x/, ""),
     [cUsdtAddress],
     userAddress,
     startTimestamp,

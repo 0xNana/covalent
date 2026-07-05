@@ -29,7 +29,7 @@ export default function HelpPage() {
           },
           {
             title: "Need the full flow",
-            body: "Use the dashboard after the campaign closes to request a reveal, finalize it from the owner wallet, and withdraw to the recipient.",
+            body: "Use the dashboard after the campaign closes to request a reveal, finalize it from the campaign creator or admin wallet, and withdraw to the recipient.",
           },
         ].map((item) => (
           <article key={item.title} className="card p-6">

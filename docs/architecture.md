@@ -8,7 +8,7 @@ Covalent is a confidential donation platform built on Zama FHEVM and ERC-7984 co
 2. Donor encrypts the donation amount client-side with `@zama-fhe/relayer-sdk`.
 3. Donor submits `confidentialTransferAndCall` to the fund contract with encrypted inputs.
 4. The fund contract accumulates encrypted totals using `FHE.add()`.
-5. After the fund closes, an authorized admin requests a reveal, and the MCP submits the aggregated plaintext total together with a verified decryption proof.
+5. After the fund closes, the campaign creator or an assigned admin requests a reveal and submits the aggregated plaintext total together with a verified decryption proof.
 
 ## Layers
 
@@ -27,6 +27,6 @@ Covalent is a confidential donation platform built on Zama FHEVM and ERC-7984 co
 
 - Client-side encryption with `createEncryptedInput` from `@zama-fhe/relayer-sdk`.
 - Multi-step donate flow: approve USDT, wrap to cUSDT, encrypt, donate.
-- Admin reveal UI requests aggregate decryption only.
+- Campaign admin UI requests and finalizes aggregate decryption only.
 
 For deeper technical artifacts, see `internal-docs/`.

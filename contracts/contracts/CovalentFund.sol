@@ -28,7 +28,6 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
     error NotAuthorized();
     error AlreadyRevealed();
     error RevealNotRequested();
-    error OnlyOwnerCanReveal();
     error TotalMustBeRevealed();
     error FundStillActive();
     error NoFundsToWithdraw();
@@ -91,7 +90,7 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
     // -------------------------------------------------------------------------
 
     /**
-     * @param initialOwner The initial owner of the contract (can reveal totals)
+     * @param initialOwner The initial owner of the contract (manages token whitelist)
      */
     constructor(address initialOwner) Ownable(initialOwner) {}
 
@@ -269,7 +268,7 @@ contract CovalentFund is ICovalentFund, IERC7984Receiver, ZamaEthereumConfig, Ow
         if (block.timestamp <= fund.endTime) revert FundStillActive();
         if (!_revealRequests[fundId][token]) revert RevealNotRequested();
         if (_tokenRevealed[fundId][token]) revert AlreadyRevealed();
-        if (msg.sender != owner()) revert OnlyOwnerCanReveal();
+        if (!_admins[fundId][msg.sender] && msg.sender != fund.creator) revert NotAuthorized();
 
         euint64 encryptedTotal = _encryptedTotals[fundId][token];
         if (!FHE.isInitialized(encryptedTotal)) revert NoFundsToReveal();

@@ -9,7 +9,6 @@ import FundStats from "@/app/components/FundStats";
 import RevealButton from "@/app/components/RevealButton";
 import {
   checkIsAdmin,
-  getContractOwner,
   getEncryptedTotal,
   getFund,
   getRevealedTotal,
@@ -42,7 +41,6 @@ export default function AdminPage() {
   const [viewerFunds, setViewerFunds] = useState<FundData[]>([]);
   const [fund, setFund] = useState<ManagedFund | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
   const [loadingFund, setLoadingFund] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,14 +84,13 @@ export default function AdminPage() {
       setFund(null);
 
       const fundId = Number.parseInt(fundIdInput, 10);
-      const [fundData, revealed, revealRequested, revealedTotal, adminStatus, ownerAddress] =
+      const [fundData, revealed, revealRequested, revealedTotal, adminStatus] =
         await Promise.all([
           getFund(fundId),
           isTokenRevealed(fundId).catch(() => false),
           isRevealRequested(fundId).catch(() => false),
           getRevealedTotal(fundId).catch(() => 0n),
           checkIsAdmin(fundId, address),
-          getContractOwner(),
         ]);
 
       setFund({
@@ -103,7 +100,6 @@ export default function AdminPage() {
         revealedTotal,
       });
       setIsAdmin(adminStatus);
-      setIsOwner(ownerAddress.toLowerCase() === address.toLowerCase());
     } catch (loadError: unknown) {
       setError(
         loadError instanceof Error ? loadError.message : "Failed to load campaign.",
@@ -185,7 +181,7 @@ export default function AdminPage() {
           </span>
           <h1 className="text-xl font-bold text-brand-dark">Connect Your Wallet</h1>
           <p className="mt-2 text-sm leading-relaxed text-brand-muted">
-            Connect the campaign creator, assigned admin, or contract owner wallet to
+            Connect the campaign creator or assigned admin wallet to
             manage reveals and withdrawals.
           </p>
         </div>
@@ -200,8 +196,8 @@ export default function AdminPage() {
           <div className="card p-6">
             <h1 className="text-2xl font-extrabold text-brand-dark">Dashboard</h1>
             <p className="mt-2 text-sm leading-relaxed text-brand-muted">
-              Manage campaigns you created or administer. The contract owner can
-              also finalize reveals from here.
+              Manage campaigns you created or administer. Finalize reveals and withdraw
+              without waiting on any central operator.
             </p>
 
             <label
@@ -341,11 +337,6 @@ export default function AdminPage() {
                     >
                       {isAdmin ? "Campaign Admin" : "Viewer"}
                     </span>
-                    {isOwner && (
-                      <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                        Contract Owner
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -388,13 +379,13 @@ export default function AdminPage() {
 
                 {!fund.revealed &&
                   fund.revealRequested &&
-                  !isOwner && (
+                  !isAdmin && (
                     <div className="rounded-2xl border border-brand-border bg-gray-50 p-4 text-sm text-brand-muted">
-                      Reveal requested. Waiting for the contract owner wallet to submit the proof-verified total.
+                      Reveal requested. Connect the campaign creator or assigned admin wallet to finalize the proof-verified total.
                     </div>
                   )}
 
-                {!fund.revealed && fund.revealRequested && isOwner && (
+                {!fund.revealed && fund.revealRequested && isAdmin && (
                   <button
                     type="button"
                     onClick={handleFinalizeReveal}
@@ -415,7 +406,7 @@ export default function AdminPage() {
                   </button>
                 )}
 
-                {fund.revealed && fund.revealedTotal > 0n && fund.active && (
+                {fund.revealed && fund.revealedTotal > 0n && fund.active && isAdmin && (
                   <button
                     type="button"
                     onClick={handleWithdraw}
@@ -434,6 +425,12 @@ export default function AdminPage() {
                       </>
                     )}
                   </button>
+                )}
+
+                {fund.revealed && fund.revealedTotal > 0n && fund.active && !isAdmin && (
+                  <div className="rounded-2xl border border-brand-border bg-gray-50 p-4 text-sm text-brand-muted">
+                    Connect the campaign creator or assigned admin wallet to withdraw to the recipient.
+                  </div>
                 )}
 
                 {fund.revealed && !fund.active && (
